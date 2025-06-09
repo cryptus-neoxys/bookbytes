@@ -33,6 +33,8 @@ BookBytes is a Python application that converts non-fiction books into chapter-w
 
 ## 🔧 Installation
 
+### Standard Installation
+
 1. **Clone the repository**:
    ```bash
    git clone <repository-url>
@@ -59,6 +61,40 @@ BookBytes is a Python application that converts non-fiction books into chapter-w
    ```
    OPENAI_API_KEY=your-openai-api-key-here
    ```
+
+### 🐳 Docker Installation
+
+Alternatively, you can run BookBytes using Docker:
+
+1. **Clone the repository**:
+   ```bash
+   git clone <repository-url>
+   cd bookbytes
+   ```
+
+2. **Create a `.env` file with your OpenAI API key**:
+   ```bash
+   echo "OPENAI_API_KEY=your-openai-api-key-here" > .env
+   ```
+
+3. **Build and start the container**:
+   ```bash
+   docker-compose up -d
+   ```
+
+4. **Access the application at http://localhost:5000**
+
+5. **To stop the container**:
+   ```bash
+   docker-compose down
+   ```
+
+#### Data Persistence with Docker
+
+The application uses Docker volumes to persist data:
+
+- The SQLite database and audio files are stored in a Docker volume named `bookbytes-data`
+- This ensures your data is preserved even if the container is removed
 
 ## 🚀 Usage
 
@@ -233,12 +269,37 @@ bookbytes/
    - Check internet connection (gTTS requires internet)
    - Ensure the `audio/` directory is writable
 
+### Docker-Specific Issues
+
+1. **Container fails to start**
+   - Check if the required ports are already in use
+   - Verify that the `.env` file exists with a valid OpenAI API key
+
+2. **Data persistence issues**
+   - Ensure the Docker volume is properly created: `docker volume ls`
+   - Check container logs for permission issues: `docker-compose logs`
+
+3. **Performance issues**
+   - Adjust container resources in docker-compose.yml if needed
+   - For production, consider setting `FLASK_DEBUG=0`
+
 ### Debug Mode
 
 Run the application in debug mode for more detailed logs:
 
 ```bash
 FLASK_DEBUG=1 python app.py
+```
+
+For Docker:
+
+```bash
+# View logs
+docker-compose logs -f
+
+# Restart with debug mode
+docker-compose down
+FLASK_DEBUG=1 docker-compose up -d
 ```
 
 ## 📊 Example Books to Try
