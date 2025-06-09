@@ -17,6 +17,10 @@
 
 ### Text To Speech
 
+#### OpenAI
+- [OpenAI FM](https://www.openai.fm/), audio playground
+- OpenAI [Text to speech docs](https://platform.openai.com/docs/guides/text-to-speech)
+
 #### [ElevenLabs](https://elevenlabs.io/text-to-speech)
 
 #### Open Source
