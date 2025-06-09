@@ -1,0 +1,70 @@
+# Docker Setup for BookBytes
+
+This document explains how to run BookBytes using Docker.
+
+## Prerequisites
+
+- Docker installed on your system
+- Docker Compose installed on your system
+- OpenAI API key
+
+## Running with Docker Compose
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/your-username/bookbytes.git
+   cd bookbytes
+   ```
+
+2. Create a `.env` file with your OpenAI API key:
+   ```bash
+   echo "OPENAI_API_KEY=your-openai-api-key-here" > .env
+   ```
+
+3. Build and start the container:
+   ```bash
+   docker-compose up -d
+   ```
+
+4. Access the application at http://localhost:5000
+
+5. To stop the container:
+   ```bash
+   docker-compose down
+   ```
+
+## Data Persistence
+
+The application uses Docker volumes to persist data:
+
+- The SQLite database is stored in `/data/bookbytes.db` inside the container and mapped to a Docker volume
+- Audio files are stored in `/data/audio` inside the container and mapped to the same Docker volume
+
+This ensures your data is preserved even if the container is removed.
+
+## Environment Variables
+
+You can customize the application by setting environment variables in the `.env` file or directly in the `docker-compose.yml` file:
+
+- `OPENAI_API_KEY`: Your OpenAI API key (required)
+- `FLASK_ENV`: Flask environment (default: production)
+- `FLASK_DEBUG`: Enable debug mode (default: 0)
+- `DB_PATH`: Path to the SQLite database (default: /data/bookbytes.db)
+- `AUDIO_DIR`: Path to the audio directory (default: /data/audio)
+- `PORT`: Port to run the server on (default: 5000)
+- `HOST`: Host to bind the server to (default: 0.0.0.0)
+
+## Building the Docker Image Manually
+
+If you want to build the Docker image manually:
+
+```bash
+docker build -t bookbytes .
+docker run -p 5000:5000 -e OPENAI_API_KEY=your-key-here -v bookbytes-data:/data bookbytes
+```
+
+## Troubleshooting
+
+- If you encounter permission issues with the volume, check that the container has write access to the mounted directories
+- To view logs: `docker-compose logs -f`
+- To restart the container: `docker-compose restart`
