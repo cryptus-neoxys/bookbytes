@@ -216,6 +216,8 @@ tmp/
 temp/
 
 # API keys and secrets
-.env.local
-.env.production
+.env.*
 secrets.json
+
+## local project files to be ignored
+samples/
