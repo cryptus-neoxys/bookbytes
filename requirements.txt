@@ -3,6 +3,6 @@ openai==1.84.0
 gTTS==2.4.0
 requests==2.31.0
 Flask-CORS==4.0.0
-werkzeug==2.3.7
+werkzeug==3.0.6
 pydub==0.25.1
 python-dotenv==1.0.0
