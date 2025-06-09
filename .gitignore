@@ -195,3 +195,26 @@ cython_debug/
 .cursorindexingignore
 
 .DS_Store
+
+# BookBytes specific files
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Generated audio files
+audio/
+test_audio/
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+
+# API keys and secrets
+.env.local
+.env.production
+secrets.json
