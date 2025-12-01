@@ -1,0 +1,108 @@
+import { useParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { getChapters } from "@/lib/api";
+import { PageContainer } from "@/components/layout/PageContainer";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { AlertCircle, Play, FileText } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useAudioStore } from "@/store/useAudioStore";
+
+export default function BookDetails() {
+  const { isbn } = useParams<{ isbn: string }>();
+  const { playChapter, setPlaylist } = useAudioStore();
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["chapters", isbn],
+    queryFn: () => getChapters(isbn!),
+    enabled: !!isbn,
+  });
+
+  if (error) {
+    return (
+      <PageContainer>
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>
+            Failed to load chapters. Please try again later.
+          </AlertDescription>
+        </Alert>
+      </PageContainer>
+    );
+  }
+
+  const handlePlay = (chapterIndex: number) => {
+    if (data?.chapters) {
+      setPlaylist(data.chapters, data.isbn);
+      playChapter(chapterIndex);
+    }
+  };
+
+  return (
+    <PageContainer>
+      {isLoading ? (
+        <div className="space-y-6">
+          <Skeleton className="h-12 w-3/4" />
+          <div className="space-y-4">
+            {[...Array(5)].map((_, i) => (
+              <Skeleton key={i} className="h-24 w-full" />
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          <div className="space-y-2">
+            {/* We don't have full book details here unless we fetch them or pass them. 
+                 For MVP, we might just show the chapter list or fetch book details separately.
+                 For now, assuming we just show chapters. */}
+            <h1 className="text-3xl font-bold">Chapters</h1>
+            <p className="text-muted-foreground">
+              {data?.count} Chapters available
+            </p>
+          </div>
+
+          <div className="grid gap-4">
+            {data?.chapters.map((chapter, index) => (
+              <Card
+                key={chapter.chapter_number}
+                className="hover:bg-accent/50 transition-colors"
+              >
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div className="space-y-1 flex-1 mr-4">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm font-medium text-muted-foreground">
+                        #{chapter.chapter_number}
+                      </span>
+                      <h3 className="font-semibold leading-none tracking-tight">
+                        {chapter.title}
+                      </h3>
+                    </div>
+                    <div className="flex items-center text-sm text-muted-foreground space-x-4">
+                      {chapter.word_count && (
+                        <span className="flex items-center">
+                          <FileText className="mr-1 h-3 w-3" />
+                          {chapter.word_count} words
+                        </span>
+                      )}
+                      {/* Duration would be nice if we had it */}
+                    </div>
+                  </div>
+                  <Button
+                    size="icon"
+                    variant={chapter.has_audio ? "default" : "secondary"}
+                    disabled={!chapter.has_audio}
+                    onClick={() => handlePlay(index)}
+                  >
+                    <Play className="h-4 w-4" />
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+    </PageContainer>
+  );
+}
