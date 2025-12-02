@@ -5,13 +5,21 @@ import { PageContainer } from "@/components/layout/PageContainer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Play, FileText } from "lucide-react";
+import { AlertCircle, Play, Pause, FileText } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useAudioStore } from "@/store/useAudioStore";
 
 export default function BookDetails() {
   const { isbn } = useParams<{ isbn: string }>();
-  const { playChapter, setPlaylist } = useAudioStore();
+  const {
+    playChapter,
+    setPlaylist,
+    currentChapter,
+    isPlaying,
+    togglePlay,
+    bookIsbn,
+  } = useAudioStore();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["chapters", isbn],
@@ -35,8 +43,18 @@ export default function BookDetails() {
 
   const handlePlay = (chapterIndex: number) => {
     if (data?.chapters) {
-      setPlaylist(data.chapters, data.isbn);
-      playChapter(chapterIndex);
+      // If playing the same book and chapter, just toggle
+      const chapter = data.chapters[chapterIndex];
+      const isCurrentChapter =
+        currentChapter?.chapter_number === chapter.chapter_number &&
+        bookIsbn === isbn;
+
+      if (isCurrentChapter) {
+        togglePlay();
+      } else {
+        setPlaylist(data.chapters, data.isbn);
+        playChapter(chapterIndex);
+      }
     }
   };
 
@@ -64,42 +82,69 @@ export default function BookDetails() {
           </div>
 
           <div className="grid gap-4">
-            {data?.chapters.map((chapter, index) => (
-              <Card
-                key={chapter.chapter_number}
-                className="hover:bg-accent/50 transition-colors"
-              >
-                <CardContent className="p-4 flex items-center justify-between">
-                  <div className="space-y-1 flex-1 mr-4">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm font-medium text-muted-foreground">
-                        #{chapter.chapter_number}
-                      </span>
-                      <h3 className="font-semibold leading-none tracking-tight">
-                        {chapter.title}
-                      </h3>
-                    </div>
-                    <div className="flex items-center text-sm text-muted-foreground space-x-4">
-                      {chapter.word_count && (
-                        <span className="flex items-center">
-                          <FileText className="mr-1 h-3 w-3" />
-                          {chapter.word_count} words
+            {data?.chapters.map((chapter, index) => {
+              const isCurrentChapter =
+                currentChapter?.chapter_number === chapter.chapter_number &&
+                bookIsbn === isbn;
+              const isPlayingCurrent = isCurrentChapter && isPlaying;
+
+              return (
+                <Card
+                  key={chapter.chapter_number}
+                  className={cn(
+                    "transition-colors",
+                    isCurrentChapter
+                      ? "border-primary bg-primary/5"
+                      : "hover:bg-accent/50"
+                  )}
+                >
+                  <CardContent className="p-4 flex items-center justify-between">
+                    <div className="space-y-1 flex-1 mr-4">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-sm font-medium text-muted-foreground">
+                          #{chapter.chapter_number}
                         </span>
-                      )}
-                      {/* Duration would be nice if we had it */}
+                        <h3
+                          className={cn(
+                            "font-semibold leading-none tracking-tight",
+                            isCurrentChapter && "text-primary"
+                          )}
+                        >
+                          {chapter.title}
+                        </h3>
+                      </div>
+                      <div className="flex items-center text-sm text-muted-foreground space-x-4">
+                        {chapter.word_count && (
+                          <span className="flex items-center">
+                            <FileText className="mr-1 h-3 w-3" />
+                            {chapter.word_count} words
+                          </span>
+                        )}
+                        {/* Duration would be nice if we had it */}
+                      </div>
                     </div>
-                  </div>
-                  <Button
-                    size="icon"
-                    variant={chapter.has_audio ? "default" : "secondary"}
-                    disabled={!chapter.has_audio}
-                    onClick={() => handlePlay(index)}
-                  >
-                    <Play className="h-4 w-4" />
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
+                    <Button
+                      size="icon"
+                      variant={
+                        isCurrentChapter
+                          ? "default"
+                          : chapter.has_audio
+                          ? "secondary"
+                          : "ghost"
+                      }
+                      disabled={!chapter.has_audio}
+                      onClick={() => handlePlay(index)}
+                    >
+                      {isPlayingCurrent ? (
+                        <Pause className="h-4 w-4" />
+                      ) : (
+                        <Play className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </div>
       )}

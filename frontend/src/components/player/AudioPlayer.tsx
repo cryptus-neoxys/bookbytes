@@ -171,7 +171,7 @@ export function AudioPlayer() {
       {/* Mini Player / Full Player Container */}
       <div
         className={cn(
-          "fixed left-0 right-0 bg-background/95 backdrop-blur border-t transition-all duration-300 ease-in-out z-40",
+          "fixed left-0 right-0 bg-background/95 backdrop-blur border-t transition-all duration-300 ease-in-out z-[100]",
           isExpanded
             ? "top-0 bottom-0 h-screen flex flex-col"
             : "bottom-16 md:bottom-0 h-20"
@@ -286,7 +286,9 @@ export function AudioPlayer() {
                 {isPlaying ? (
                   <Pause className={isExpanded ? "h-8 w-8" : "h-5 w-5"} />
                 ) : (
-                  <Play className={isExpanded ? "h-8 w-8" : "h-5 w-5"} ml-1 />
+                  <Play
+                    className={cn(isExpanded ? "h-8 w-8" : "h-5 w-5", "ml-1")}
+                  />
                 )}
               </Button>
               <Button
