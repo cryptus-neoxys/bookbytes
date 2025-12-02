@@ -43,17 +43,9 @@ export const useAudioStore = create<AudioState>()(
       isExpanded: false,
 
       setPlaylist: (chapters, isbn) => {
-        // If setting the same playlist, don't reset everything unless it's empty
-        const { bookIsbn } = get();
-        if (bookIsbn === isbn && chapters.length > 0) return;
-
         set({
           playlist: chapters,
           bookIsbn: isbn,
-          currentIndex: -1,
-          currentChapter: null,
-          currentTime: 0,
-          isPlaying: false,
         });
       },
 

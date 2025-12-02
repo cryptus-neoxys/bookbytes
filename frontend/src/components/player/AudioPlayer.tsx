@@ -13,7 +13,6 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
 export function AudioPlayer() {
   const {
     currentChapter,
@@ -32,34 +31,47 @@ export function AudioPlayer() {
     toggleExpanded,
     bookIsbn,
   } = useAudioStore();
-
   const audioRef = useRef<HTMLAudioElement>(null);
   const [localTime, setLocalTime] = useState(currentTime);
   const [isDragging, setIsDragging] = useState(false);
-
-  // Sync audio element with store state
+  // Construct the audio URL
+  const audioUrl = currentChapter
+    ? `/api/audio/${bookIsbn}/${currentChapter.chapter_number}`
+    : "";
+  // Sync play/pause state when isPlaying changes (for toggle)
   useEffect(() => {
     if (audioRef.current) {
       if (isPlaying) {
-        audioRef.current.play().catch(() => setIsPlaying(false));
+        // We catch the promise to avoid errors if the user hasn't interacted yet
+        // or if the audio is already playing (though the check prevents most cases)
+        audioRef.current.play().catch((e) => {
+          console.error("Play failed:", e);
+          // Optional: setIsPlaying(false) if we want to reflect failure in UI,
+          // but for autoplay it might be transient.
+        });
       } else {
         audioRef.current.pause();
       }
     }
-  }, [isPlaying, setIsPlaying]);
-
+  }, [isPlaying]);
+  // Trigger playback when chapter changes
+  useEffect(() => {
+    if (audioRef.current && isPlaying && currentChapter) {
+      audioRef.current.play().catch((e) => {
+        console.error("Play failed on chapter change:", e);
+      });
+    }
+  }, [currentChapter, isPlaying]);
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.volume = volume;
     }
   }, [volume]);
-
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.playbackRate = playbackRate;
     }
   }, [playbackRate]);
-
   // Media Session API
   useEffect(() => {
     if ("mediaSession" in navigator && currentChapter) {
@@ -72,19 +84,12 @@ export function AudioPlayer() {
           { src: "/icon-512.png", sizes: "512x512", type: "image/png" },
         ],
       });
-
-      navigator.mediaSession.setActionHandler("play", () => {
-        setIsPlaying(true);
-      });
-      navigator.mediaSession.setActionHandler("pause", () => {
-        setIsPlaying(false);
-      });
-      navigator.mediaSession.setActionHandler("previoustrack", () => {
-        prevChapter();
-      });
-      navigator.mediaSession.setActionHandler("nexttrack", () => {
-        nextChapter();
-      });
+      navigator.mediaSession.setActionHandler("play", () => setIsPlaying(true));
+      navigator.mediaSession.setActionHandler("pause", () =>
+        setIsPlaying(false)
+      );
+      navigator.mediaSession.setActionHandler("previoustrack", prevChapter);
+      navigator.mediaSession.setActionHandler("nexttrack", nextChapter);
       navigator.mediaSession.setActionHandler("seekto", (details) => {
         if (details.seekTime && audioRef.current) {
           audioRef.current.currentTime = details.seekTime;
@@ -93,24 +98,7 @@ export function AudioPlayer() {
       });
     }
   }, [currentChapter, setIsPlaying, prevChapter, nextChapter, setCurrentTime]);
-
-  // Handle source change
-  useEffect(() => {
-    if (currentChapter && audioRef.current) {
-      // Construct the audio URL.
-      // Assuming the backend serves it at /api/audio/<isbn>/<chapter_number>
-      const audioUrl = `/api/audio/${bookIsbn}/${currentChapter.chapter_number}`;
-
-      if (audioRef.current.src !== window.location.origin + audioUrl) {
-        audioRef.current.src = audioUrl;
-        if (isPlaying) {
-          audioRef.current.play().catch(console.error);
-        }
-      }
-    }
-  }, [currentChapter, bookIsbn, isPlaying]);
-
-  // Handle seeking from other components (like prevChapter restart)
+  // Handle seeking from other components
   useEffect(() => {
     if (
       audioRef.current &&
@@ -120,7 +108,6 @@ export function AudioPlayer() {
       audioRef.current.currentTime = currentTime;
     }
   }, [currentTime, isDragging]);
-
   const handleTimeUpdate = () => {
     if (audioRef.current && !isDragging) {
       const time = audioRef.current.currentTime;
@@ -129,16 +116,13 @@ export function AudioPlayer() {
       setDuration(audioRef.current.duration || 0);
     }
   };
-
   const handleEnded = () => {
     nextChapter();
   };
-
   const handleSliderChange = (value: number[]) => {
     setIsDragging(true);
     setLocalTime(value[0]);
   };
-
   const handleSliderCommit = (value: number[]) => {
     if (audioRef.current) {
       audioRef.current.currentTime = value[0];
@@ -146,7 +130,6 @@ export function AudioPlayer() {
     }
     setIsDragging(false);
   };
-
   const formatTime = (seconds: number) => {
     if (!seconds || isNaN(seconds)) return "00:00";
     const mins = Math.floor(seconds / 60);
@@ -155,19 +138,19 @@ export function AudioPlayer() {
       .toString()
       .padStart(2, "0")}`;
   };
-
   if (!currentChapter) return null;
-
   return (
     <>
       <audio
+        key={currentChapter.chapter_number} // Force remount on chapter change
+        src={audioUrl}
+        autoPlay={isPlaying} // Auto-play if state says we are playing
         ref={audioRef}
         onTimeUpdate={handleTimeUpdate}
         onEnded={handleEnded}
         onPause={() => setIsPlaying(false)}
         onPlay={() => setIsPlaying(true)}
       />
-
       {/* Mini Player / Full Player Container */}
       <div
         className={cn(
@@ -189,7 +172,6 @@ export function AudioPlayer() {
             </Button>
           </div>
         )}
-
         <div
           className={cn(
             "flex items-center px-4",
@@ -237,7 +219,6 @@ export function AudioPlayer() {
               </p>
             </div>
           </div>
-
           {/* Controls */}
           <div
             className={cn(
@@ -264,7 +245,6 @@ export function AudioPlayer() {
                 {formatTime(duration || 0)}
               </span>
             </div>
-
             {/* Main Controls */}
             <div className="flex items-center space-x-6 mt-2">
               <Button
@@ -301,7 +281,6 @@ export function AudioPlayer() {
               </Button>
             </div>
           </div>
-
           {/* Mobile Mini Controls */}
           {!isExpanded && (
             <div className="flex items-center space-x-2 md:hidden">
@@ -317,7 +296,6 @@ export function AudioPlayer() {
               </Button>
             </div>
           )}
-
           {/* Desktop Extra Controls */}
           {!isExpanded && (
             <div className="hidden md:flex items-center space-x-2 w-32 justify-end">
