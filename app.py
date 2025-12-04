@@ -555,6 +555,60 @@ class BookBytesApp:
         
         return result
     
+    def get_book(self, isbn: str) -> Optional[Dict]:
+        """Get a single book from database"""
+        logger.info(f"Retrieving book from database: {isbn}")
+        start_time = datetime.now()
+        
+        # Validate and clean ISBN
+        if not isbn or not isinstance(isbn, str):
+            logger.warning(f"Invalid ISBN provided: {isbn}")
+            return None
+            
+        clean_isbn = isbn.strip().replace('-', '').replace(' ', '')
+        
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            logger.debug(f"Executing SQL query to retrieve book {clean_isbn}")
+            cursor.execute("""
+                SELECT b.isbn, b.title, b.author, b.pages, b.publish_date,
+                       COUNT(c.id) as chapter_count
+                FROM books b
+                LEFT JOIN chapters c ON b.isbn = c.book_isbn
+                WHERE b.isbn = ?
+                GROUP BY b.isbn
+            """, (clean_isbn,))
+            
+            row = cursor.fetchone()
+            conn.close()
+            
+            if row:
+                book = {
+                    'isbn': row[0],
+                    'title': row[1],
+                    'author': row[2],
+                    'pages': row[3],
+                    'publish_date': row[4],
+                    'chapter_count': row[5]
+                }
+                
+                # Calculate processing time
+                processing_time = (datetime.now() - start_time).total_seconds()
+                logger.info(f"Retrieved book {clean_isbn} in {processing_time:.2f} seconds")
+                return book
+            else:
+                logger.warning(f"Book with ISBN {clean_isbn} not found")
+                return None
+            
+        except sqlite3.Error as e:
+            logger.error(f"SQLite error getting book {clean_isbn}: {e}")
+            return None
+        except Exception as e:
+            logger.exception(f"Unexpected error getting book {clean_isbn}: {e}")
+            return None
+
     def get_all_books(self) -> List[Dict]:
         """Get all books from database"""
         logger.info("Retrieving all books from database")
@@ -761,6 +815,45 @@ def get_books_api():
         
     except Exception as e:
         logger.exception(f"[{request_id}] Error retrieving books: {e}")
+        return jsonify({
+            'error': 'Internal server error', 
+            'message': str(e),
+            'request_id': request_id
+        }), 500
+
+@app.route('/api/books/<isbn>', methods=['GET'])
+def get_book_api(isbn):
+    """API endpoint to get a specific book"""
+    request_id = f"req_{datetime.now().strftime('%Y%m%d%H%M%S')}_{id(request)}"
+    logger.info(f"[{request_id}] Received request to get book details for ISBN: {isbn}")
+    
+    try:
+        # Start timer for performance tracking
+        start_time = datetime.now()
+        
+        book = bookbytes.get_book(isbn)
+        
+        # Calculate processing time
+        processing_time = (datetime.now() - start_time).total_seconds()
+        
+        if book:
+            logger.info(f"[{request_id}] Retrieved book details for {isbn} in {processing_time:.2f} seconds")
+            
+            response = {
+                'book': book,
+                'request_id': request_id,
+                'processing_time': f"{processing_time:.2f}s"
+            }
+            return jsonify(response)
+        else:
+            logger.warning(f"[{request_id}] Book not found: {isbn}")
+            return jsonify({
+                'error': 'Book not found',
+                'request_id': request_id
+            }), 404
+        
+    except Exception as e:
+        logger.exception(f"[{request_id}] Error retrieving book {isbn}: {e}")
         return jsonify({
             'error': 'Internal server error', 
             'message': str(e),
@@ -997,7 +1090,7 @@ if __name__ == '__main__':
     # Initialize the BookBytes application
     try:
         logger.info("Initializing BookBytes application...")
-        bookbytes = BookBytesApp()
+        bookbytes = BookBytesApp(db_path=db_path, audio_dir=audio_dir)
         logger.info("BookBytes application initialized successfully")
         
         # Log database and audio directory status

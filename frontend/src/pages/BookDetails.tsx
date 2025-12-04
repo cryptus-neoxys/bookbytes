@@ -1,6 +1,6 @@
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { getChapters } from "@/lib/api";
+import { getChapters, getBook } from "@/lib/api";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,20 +21,34 @@ export default function BookDetails() {
     bookIsbn,
   } = useAudioStore();
 
-  const { data, isLoading, error } = useQuery({
+  const {
+    data: chaptersData,
+    isLoading: isLoadingChapters,
+    error: chaptersError,
+  } = useQuery({
     queryKey: ["chapters", isbn],
     queryFn: () => getChapters(isbn!),
     enabled: !!isbn,
   });
 
-  if (error) {
+  const {
+    data: bookData,
+    isLoading: isLoadingBook,
+    error: bookError,
+  } = useQuery({
+    queryKey: ["book", isbn],
+    queryFn: () => getBook(isbn!),
+    enabled: !!isbn,
+  });
+
+  if (chaptersError || bookError) {
     return (
       <PageContainer>
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
           <AlertDescription>
-            Failed to load chapters. Please try again later.
+            Failed to load book details. Please try again later.
           </AlertDescription>
         </Alert>
       </PageContainer>
@@ -42,9 +56,9 @@ export default function BookDetails() {
   }
 
   const handlePlay = (chapterIndex: number) => {
-    if (data?.chapters) {
+    if (chaptersData?.chapters) {
       // If playing the same book and chapter, just toggle
-      const chapter = data.chapters[chapterIndex];
+      const chapter = chaptersData.chapters[chapterIndex];
       const isCurrentChapter =
         currentChapter?.chapter_number === chapter.chapter_number &&
         bookIsbn === isbn;
@@ -52,11 +66,13 @@ export default function BookDetails() {
       if (isCurrentChapter) {
         togglePlay();
       } else {
-        setPlaylist(data.chapters, data.isbn);
+        setPlaylist(chaptersData.chapters, chaptersData.isbn);
         playChapter(chapterIndex);
       }
     }
   };
+
+  const isLoading = isLoadingChapters || isLoadingBook;
 
   return (
     <PageContainer>
@@ -72,17 +88,16 @@ export default function BookDetails() {
       ) : (
         <div className="space-y-6">
           <div className="space-y-2">
-            {/* We don't have full book details here unless we fetch them or pass them. 
-                 For MVP, we might just show the chapter list or fetch book details separately.
-                 For now, assuming we just show chapters. */}
-            <h1 className="text-3xl font-bold">Chapters</h1>
+            <h1 className="text-3xl font-bold">
+              {bookData?.book.title || "Chapters"}
+            </h1>
             <p className="text-muted-foreground">
-              {data?.count} Chapters available
+              {bookData?.book.author} • {chaptersData?.count} Chapters available
             </p>
           </div>
 
           <div className="grid gap-4">
-            {data?.chapters.map((chapter, index) => {
+            {chaptersData?.chapters.map((chapter, index) => {
               const isCurrentChapter =
                 currentChapter?.chapter_number === chapter.chapter_number &&
                 bookIsbn === isbn;

@@ -58,6 +58,17 @@ export const getBooks = async (): Promise<GetBooksResponse> => {
   return response.data;
 };
 
+export interface GetBookResponse {
+  book: Book;
+  request_id: string;
+  processing_time: string;
+}
+
+export const getBook = async (isbn: string): Promise<GetBookResponse> => {
+  const response = await api.get<GetBookResponse>(`/books/${isbn}`);
+  return response.data;
+};
+
 export const getChapters = async (
   isbn: string
 ): Promise<GetChaptersResponse> => {
