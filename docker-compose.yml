@@ -7,7 +7,7 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      - bookbytes-data:/data
+      - ./data:/data
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - FLASK_ENV=production
@@ -27,17 +27,13 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1'
+          cpus: "0.5"
           memory: 1G
         reservations:
-          cpus: '0.25'
+          cpus: "0.25"
           memory: 512M
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
-
-volumes:
-  bookbytes-data:
-    name: bookbytes-data
