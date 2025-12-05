@@ -14,7 +14,7 @@ services:
   # ---------------------------------------------------------------------------
   api:
     build:
-      context: ..
+      context: .
       dockerfile: docker/Dockerfile
     command: uvicorn bookbytes.main:app --host 0.0.0.0 --port 8000 --reload
     ports:
@@ -44,7 +44,7 @@ services:
       - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
     volumes:
       # Mount source for hot reload in development
-      - ../src:/app/src:ro
+      - ./src:/app/src:ro
       # Persist audio files
       - audio-data:/app/data/audio
     depends_on:
@@ -65,7 +65,7 @@ services:
   # ---------------------------------------------------------------------------
   worker:
     build:
-      context: ..
+      context: .
       dockerfile: docker/Dockerfile
     # Placeholder command - will be enabled in Phase 3
     command: echo "Worker placeholder - enable in Phase 3 with 'arq bookbytes.workers.settings.WorkerSettings'"

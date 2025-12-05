@@ -17,7 +17,7 @@
 - `src/bookbytes/dependencies.py` - FastAPI dependency injection container
 - `.env.example` - Documented environment variables template
 
-### Phase 2: Database Layer
+### Incremental Phase (2): Database Layer
 
 - `src/bookbytes/core/__init__.py` - Core module initialization
 - `src/bookbytes/core/database.py` - Async engine, session factory, connection pooling
@@ -145,7 +145,7 @@ Update the file after completing each sub-task, not just after completing an ent
   - [x] 2.8 Update `main.py` lifespan to initialize and close database connection
   - [x] 2.9 Update `/health/ready` to check database connectivity with `SELECT 1`
   - [x] 2.10 Create `tests/integration/test_database.py` to verify database connection and session lifecycle
-  - [ ] 2.11 Test database setup: Start postgres via docker-compose, verify connection works _(requires Docker)_
+  - [ ] 2.11 Test database setup: Start postgres via docker-compose, verify connection works
 
 - [ ] 3.0 **Phase 3: Background Job Queue**
 
@@ -176,15 +176,14 @@ Update the file after completing each sub-task, not just after completing an ent
   - [ ] 4.9 Create `src/bookbytes/repositories/chapter.py` with `ChapterRepository` adding `get_by_book_id()`, `get_by_book_and_number()`
   - [ ] 4.10 Generate migration for Book, BookIsbn, Chapter models: `alembic revision --autogenerate -m "add_book_chapter_models"`
   - [ ] 4.11 Create `src/bookbytes/schemas/book.py` with schemas: `BookCreate(isbn: str)`, `BookIsbnResponse(isbn, isbn_type)`, `BookResponse(id, title, author, language, ..., isbns: list[BookIsbnResponse])`, `BookListResponse(books: list[BookResponse])`, `ProcessBookRequest(isbn: str)`, `ProcessBookResponse(job_id, status)`
-  - [ ] 4.6 Create `src/bookbytes/schemas/chapter.py` with schemas: `ChapterResponse(id, book_id, chapter_number, title, summary, audio_url, word_count)`, `ChapterListResponse(chapters: list[ChapterResponse])`, `AudioUrlResponse(url: str)`
-  - [ ] 4.7 Create `src/bookbytes/api/v1/books.py` with endpoints: `POST /books/process` (enqueue processing, return job_id), `GET /books` (list all books), `GET /books/{book_id}` (get by UUID), `GET /books/isbn/{isbn}` (get by ISBN), `GET /books/{book_id}/chapters` (list chapters)
-  - [ ] 4.8 Create `src/bookbytes/api/v1/chapters.py` with endpoints: `GET /chapters/{chapter_id}` (get chapter details), `GET /chapters/{chapter_id}/audio` (return audio URL or redirect)
-  - [ ] 4.9 Create `src/bookbytes/api/v1/health.py` with endpoints: `GET /health/live` (always returns 200 `{"status": "ok"}`), `GET /health/ready` (checks DB and Redis, returns checks object)
-  - [ ] 4.10 Create `src/bookbytes/api/v1/router.py` that combines all routers using `APIRouter()` and `include_router()` with appropriate prefixes and tags
-  - [ ] 4.11 Include v1 router in `main.py` under `/api/v1` prefix
-  - [ ] 4.12 Configure OpenAPI in `main.py`: Set title, description, version, add example responses to endpoints using `responses` parameter
-  - [ ] 4.13 Verify API documentation: Access `/docs` and `/redoc` endpoints, ensure all endpoints are documented with request/response examples
-  - [ ] 4.14 Create `tests/integration/test_books_api.py` with tests: process book (returns job_id), list books, get book by id, get book by isbn (404 for unknown), get chapters for book
+  - [ ] 4.12 Create `src/bookbytes/api/v1/books.py` with endpoints: `POST /books/process` (enqueue processing, return job_id), `GET /books` (list all books), `GET /books/{book_id}` (get by UUID), `GET /books/isbn/{isbn}` (get by ISBN), `GET /books/{book_id}/chapters` (list chapters)
+  - [ ] 4.13 Create `src/bookbytes/api/v1/chapters.py` with endpoints: `GET /chapters/{chapter_id}` (get chapter details), `GET /chapters/{chapter_id}/audio` (return audio URL or redirect)
+  - [ ] 4.14 Create `src/bookbytes/api/v1/health.py` with endpoints: `GET /health/live` (always returns 200 `{"status": "ok"}`), `GET /health/ready` (checks DB and Redis, returns checks object)
+  - [ ] 4.15 Create `src/bookbytes/api/v1/router.py` that combines all routers using `APIRouter()` and `include_router()` with appropriate prefixes and tags
+  - [ ] 4.16 Include v1 router in `main.py` under `/api/v1` prefix
+  - [ ] 4.17 Configure OpenAPI in `main.py`: Set title, description, version, add example responses to endpoints using `responses` parameter
+  - [ ] 4.18 Verify API documentation: Access `/docs` and `/redoc` endpoints, ensure all endpoints are documented with request/response examples
+  - [ ] 4.19 Create `tests/integration/test_books_api.py` with tests: process book (returns job_id), list books, get book by id, get book by isbn (404 for unknown), get chapters for book
 
 - [ ] 5.0 **Phase 5: Storage & External Services**
 

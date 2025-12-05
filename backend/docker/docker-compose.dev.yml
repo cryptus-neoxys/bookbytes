@@ -4,7 +4,7 @@
 services:
   api:
     build:
-      context: ..
+      context: .
       dockerfile: docker/Dockerfile.dev
     container_name: bookbytes-api-dev
     ports:
@@ -24,7 +24,7 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-sk-placeholder}
     volumes:
       # Mount source code for hot reload
-      - ../src:/app/src:cached
+      - ./src:/app/src:cached
       # Persist audio data
       - audio-data:/app/data/audio
     depends_on:
