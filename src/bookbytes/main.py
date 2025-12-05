@@ -46,6 +46,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     Yields:
         None: Control back to the application
     """
+    from bookbytes.core.database import close_db, init_db
+
     settings = get_settings()
 
     # ========================================
@@ -57,7 +59,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Re-get logger after configuration
     startup_logger = get_logger(__name__)
 
-    # TODO: Initialize database connection pool (Phase 2)
+    # Initialize database connection pool
+    await init_db(settings)
+
     # TODO: Initialize Redis connection (Phase 3)
 
     # Store settings in app state for access in dependencies
@@ -77,8 +81,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # ========================================
     # Shutdown
     # ========================================
-    # TODO: Close database connections gracefully (Phase 7)
-    # TODO: Close Redis connections gracefully (Phase 7)
+    # Close database connections
+    await close_db()
+
+    # TODO: Close Redis connections (Phase 3)
     # TODO: Wait for in-flight requests (Phase 7)
 
     startup_logger.info("Application shutting down", app_name=settings.app_name)
@@ -294,12 +300,21 @@ def configure_routes(app: FastAPI) -> None:
     )
     async def readiness() -> dict[str, Any]:
         """Readiness probe checking dependent services."""
-        # TODO: Add actual health checks for DB and Redis in Phase 2/3
+        from bookbytes.core.database import check_db_connection
+
+        # Check database connectivity
+        db_ok = await check_db_connection()
+
+        # TODO: Check Redis connectivity (Phase 3)
+        redis_ok = True  # Placeholder
+
+        overall_status = "ok" if (db_ok and redis_ok) else "error"
+
         return {
-            "status": "ok",
+            "status": overall_status,
             "checks": {
-                "database": "ok",
-                "redis": "ok",
+                "database": "ok" if db_ok else "error",
+                "redis": "ok" if redis_ok else "error",
             },
         }
 

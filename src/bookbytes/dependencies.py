@@ -10,6 +10,7 @@ from functools import lru_cache
 from typing import Annotated
 
 from fastapi import Depends, Request
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from bookbytes.config import Settings, get_settings
 
@@ -38,8 +39,7 @@ def get_settings_from_request(request: Request) -> Settings:
 # ========================================
 # Database Dependencies
 # ========================================
-# TODO: Implement in Phase 2
-async def get_db_session() -> AsyncGenerator[None, None]:
+async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     """Get an async database session.
 
     Yields a database session that automatically handles
@@ -48,15 +48,16 @@ async def get_db_session() -> AsyncGenerator[None, None]:
     Yields:
         AsyncSession: Database session
     """
-    # Placeholder - will be implemented in Phase 2
-    # async with async_session() as session:
-    #     try:
-    #         yield session
-    #         await session.commit()
-    #     except Exception:
-    #         await session.rollback()
-    #         raise
-    yield None  # type: ignore
+
+    from bookbytes.core.database import get_async_session
+
+    async for session in get_async_session():
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
 
 
 # ========================================

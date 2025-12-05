@@ -59,21 +59,36 @@ def app(test_settings: Settings) -> FastAPI:
 
 
 @pytest.fixture
-async def async_client(app: FastAPI) -> AsyncGenerator[AsyncClient, None]:
+async def async_client(
+    app: FastAPI, test_settings: Settings
+) -> AsyncGenerator[AsyncClient, None]:
     """Create an async HTTP client for testing.
 
     This client makes requests to the test app without starting a server.
+    The app lifespan is triggered to initialize database and other resources.
 
     Usage:
         async def test_endpoint(async_client: AsyncClient):
             response = await async_client.get("/health/live")
             assert response.status_code == 200
     """
+    from contextlib import asynccontextmanager
+
+    from bookbytes.core.database import close_db, init_db
+    from bookbytes.core.logging import configure_logging
+
+    # Initialize resources that lifespan would normally handle
+    configure_logging(test_settings)
+    await init_db(test_settings)
+
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
     ) as client:
         yield client
+
+    # Cleanup
+    await close_db()
 
 
 @pytest.fixture

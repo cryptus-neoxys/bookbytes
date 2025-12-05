@@ -133,39 +133,35 @@ Update the file after completing each sub-task, not just after completing an ent
   - [x] 1.7 Create `.env.example` with all environment variables documented with comments explaining each one
   - [x] 1.8 Verify the app starts: `uvicorn src.bookbytes.main:app --reload` should show FastAPI running (even with placeholder routes)
 
-- [ ] 2.0 **Phase 2: Database Layer**
+- [x] 2.0 **Phase 2: Database Foundation**
 
-  - [ ] 2.1 Create `src/bookbytes/core/database.py` with async SQLAlchemy engine using `create_async_engine()`, `async_sessionmaker`, and connection pool settings (pool_size=2, max_overflow=8)
-  - [ ] 2.2 Create `src/bookbytes/models/base.py` with `Base = declarative_base()` and a `TimestampMixin` class that adds `created_at` and `updated_at` columns with auto-update triggers
-  - [ ] 2.3 Create `src/bookbytes/models/user.py` with `User` model: `id` (UUID, PK), `email` (unique), `hashed_password`, `is_active` (default True), timestamps
-  - [ ] 2.4 Create `src/bookbytes/models/book.py` with `Book` model: `id` (UUID, PK), `title`, `author`, `language` (default 'en'), `edition`, `publisher`, `pages`, `publish_date`, `cover_url`, timestamps. Add relationship to `BookIsbn` and `Chapter`
-  - [ ] 2.5 Create `src/bookbytes/models/book.py` with `BookIsbn` model in same file: `id` (UUID, PK), `book_id` (FK to books), `isbn` (unique), `isbn_type` (Enum: isbn10, isbn13), `created_at`. Add index on `isbn`
-  - [ ] 2.6 Create `src/bookbytes/models/chapter.py` with `Chapter` model: `id` (UUID, PK), `book_id` (FK), `chapter_number`, `title`, `summary`, `audio_file_path`, `audio_url`, `word_count`, timestamps. Add unique constraint on `(book_id, chapter_number)`
-  - [ ] 2.7 Create `src/bookbytes/models/job.py` with `Job` model: `id` (UUID, PK), `user_id` (FK, nullable), `type` (Enum: process_book), `status` (Enum: pending, processing, completed, failed), `book_id` (FK, nullable), `isbn`, `error`, `progress` (0-100), `current_step`, timestamps including `started_at`, `completed_at`
-  - [ ] 2.8 Create `src/bookbytes/models/__init__.py` that exports all models: `from .user import User`, etc. This enables `from src.bookbytes.models import User, Book, Chapter, Job`
-  - [ ] 2.9 Initialize Alembic: Run `alembic init alembic` and configure `alembic.ini` with async driver support
-  - [ ] 2.10 Update `alembic/env.py` to use async migrations with `run_async_migrations()` function, import all models from `src.bookbytes.models`, and use `target_metadata = Base.metadata`
-  - [ ] 2.11 Generate initial migration: `alembic revision --autogenerate -m "001_initial_schema"` and verify the generated migration includes all tables, indexes, and constraints
-  - [ ] 2.12 Create `src/bookbytes/repositories/base.py` with generic `BaseRepository[T]` class providing async `get_by_id()`, `get_all()`, `create()`, `update()`, `delete()` methods
-  - [ ] 2.13 Create `src/bookbytes/repositories/user.py` with `UserRepository` extending base, adding `get_by_email()` method
-  - [ ] 2.14 Create `src/bookbytes/repositories/book.py` with `BookRepository` (add `get_by_language()`, `get_latest_by_title_language()`) and `BookIsbnRepository` (add `get_by_isbn()`, `get_isbns_for_book()`)
-  - [ ] 2.15 Create `src/bookbytes/repositories/chapter.py` with `ChapterRepository` adding `get_by_book_id()`, `get_by_book_and_number()`
-  - [ ] 2.16 Create `src/bookbytes/repositories/job.py` with `JobRepository` adding `get_by_user_id()`, `get_pending_jobs()`, `update_status()`, `update_progress()`
-  - [ ] 2.17 Add database session dependency to `dependencies.py`: async generator `get_db_session()` that yields session and handles commit/rollback
-  - [ ] 2.18 Test database connection: Run `alembic upgrade head` against a local PostgreSQL instance and verify all tables are created correctly
+  - [x] 2.1 Create `src/bookbytes/core/database.py` with async SQLAlchemy engine using `create_async_engine()`, `async_sessionmaker`, and connection pool settings (pool_size=2, max_overflow=8)
+  - [x] 2.2 Create `src/bookbytes/models/base.py` with `Base = declarative_base()` and a `TimestampMixin` class that adds `created_at` and `updated_at` columns with auto-update triggers
+  - [x] 2.3 Create `src/bookbytes/models/__init__.py` that exports Base (will be extended as models are added in subsequent phases)
+  - [x] 2.4 Initialize Alembic: Run `alembic init alembic` and configure `alembic.ini` with async driver support
+  - [x] 2.5 Update `alembic/env.py` to use async migrations with `run_async_migrations()` function, import Base from models, use `target_metadata = Base.metadata`
+  - [x] 2.6 Create `src/bookbytes/repositories/base.py` with generic `BaseRepository[T]` class providing async `get_by_id()`, `get_all()`, `create()`, `update()`, `delete()` methods
+  - [x] 2.7 Add database session dependency to `dependencies.py`: async generator `get_db_session()` that yields session and handles commit/rollback
+  - [x] 2.8 Update `main.py` lifespan to initialize and close database connection
+  - [x] 2.9 Update `/health/ready` to check database connectivity with `SELECT 1`
+  - [x] 2.10 Create `tests/integration/test_database.py` to verify database connection and session lifecycle
+  - [ ] 2.11 Test database setup: Start postgres via docker-compose, verify connection works _(requires Docker)_
 
 - [ ] 3.0 **Phase 3: Background Job Queue**
 
-  - [ ] 3.1 Create `src/bookbytes/workers/settings.py` with ARQ `WorkerSettings` class: define `redis_settings` from config, `functions` list, `max_jobs=5` (from `WORKER_MAX_JOBS` env var), `job_timeout=600` (10 min for book processing)
-  - [ ] 3.2 Create `src/bookbytes/workers/tasks.py` with `process_book_task(ctx, job_id: str, isbn: str)` async function that will orchestrate the pipeline (placeholder implementation for now)
-  - [ ] 3.3 Implement job lifecycle in `process_book_task`: update job status to `processing` at start, update `progress` and `current_step` during execution, set `completed` or `failed` at end
-  - [ ] 3.4 Define processing steps as constants: `STEP_FETCHING_METADATA = "fetching_metadata"`, `STEP_EXTRACTING_CHAPTERS = "extracting_chapters"`, `STEP_GENERATING_SUMMARIES = "generating_summaries"`, `STEP_CREATING_AUDIO = "creating_audio"`
-  - [ ] 3.5 Add startup hook in `workers/settings.py` to initialize database session factory for use within worker tasks
-  - [ ] 3.6 Create `src/bookbytes/schemas/job.py` with Pydantic schemas: `JobCreate(isbn: str)`, `JobResponse(id, type, status, progress, current_step, created_at, ...)`, `JobListResponse(jobs: list[JobResponse])`
-  - [ ] 3.7 Create `src/bookbytes/api/v1/jobs.py` with endpoints: `GET /jobs` (list user's jobs), `GET /jobs/{job_id}` (get job status with progress)
-  - [ ] 3.8 Add job enqueueing logic: Create helper function `enqueue_book_processing(redis, job_id, isbn)` that uses ARQ's `enqueue_job()`
-  - [ ] 3.9 Test worker starts: Run `arq src.bookbytes.workers.settings.WorkerSettings` and verify it connects to Redis and waits for jobs
-  - [ ] 3.10 Create `tests/integration/test_jobs_api.py` with tests: list jobs for user, get job status, verify job progress updates
+  - [ ] 3.1 Create `src/bookbytes/models/job.py` with `Job` model: `id` (UUID, PK), `user_id` (FK, nullable), `type` (Enum: process_book), `status` (Enum: pending, processing, completed, failed), `book_id` (FK, nullable), `isbn`, `error`, `progress` (0-100), `current_step`, timestamps including `started_at`, `completed_at`
+  - [ ] 3.2 Create `src/bookbytes/repositories/job.py` with `JobRepository` adding `get_by_user_id()`, `get_pending_jobs()`, `update_status()`, `update_progress()`
+  - [ ] 3.3 Generate migration for Job model: `alembic revision --autogenerate -m "add_job_model"`
+  - [ ] 3.4 Create `src/bookbytes/workers/settings.py` with ARQ `WorkerSettings` class: define `redis_settings` from config, `functions` list, `max_jobs=5` (from `WORKER_MAX_JOBS` env var), `job_timeout=600` (10 min for book processing)
+  - [ ] 3.5 Create `src/bookbytes/workers/tasks.py` with `process_book_task(ctx, job_id: str, isbn: str)` async function that will orchestrate the pipeline (placeholder implementation for now)
+  - [ ] 3.6 Implement job lifecycle in `process_book_task`: update job status to `processing` at start, update `progress` and `current_step` during execution, set `completed` or `failed` at end
+  - [ ] 3.7 Define processing steps as constants: `STEP_FETCHING_METADATA = "fetching_metadata"`, `STEP_EXTRACTING_CHAPTERS = "extracting_chapters"`, `STEP_GENERATING_SUMMARIES = "generating_summaries"`, `STEP_CREATING_AUDIO = "creating_audio"`
+  - [ ] 3.8 Add startup hook in `workers/settings.py` to initialize database session factory for use within worker tasks
+  - [ ] 3.9 Create `src/bookbytes/schemas/job.py` with Pydantic schemas: `JobCreate(isbn: str)`, `JobResponse(id, type, status, progress, current_step, created_at, ...)`, `JobListResponse(jobs: list[JobResponse])`
+  - [ ] 3.10 Create `src/bookbytes/api/v1/jobs.py` with endpoints: `GET /jobs` (list user's jobs), `GET /jobs/{job_id}` (get job status with progress)
+  - [ ] 3.11 Add job enqueueing logic: Create helper function `enqueue_book_processing(redis, job_id, isbn)` that uses ARQ's `enqueue_job()`
+  - [ ] 3.12 Test worker starts: Run `arq src.bookbytes.workers.settings.WorkerSettings` and verify it connects to Redis and waits for jobs
+  - [ ] 3.13 Create `tests/integration/test_jobs_api.py` with tests: list jobs for user, get job status, verify job progress updates
 
 - [ ] 4.0 **Phase 4: API Layer & Error Handling**
 
@@ -173,7 +169,13 @@ Update the file after completing each sub-task, not just after completing an ent
   - [x] 4.2 Create `src/bookbytes/schemas/common.py` with shared schemas: `ErrorDetail(code: str, message: str, request_id: str | None)`, `ErrorResponse(error: ErrorDetail)`, `PaginatedResponse[T](items: list[T], total: int, page: int, size: int)` _(DONE - moved to auxiliary foundation)_
   - [x] 4.3 Add global exception handlers in `main.py`: register handlers for `BookBytesError` (return 400 with ErrorResponse), `HTTPException` (pass through), `Exception` (log and return 500) _(DONE - integrated with 4.1)_
   - [x] 4.4 Create request ID middleware in `main.py`: Use `starlette.middleware` to add `X-Request-ID` header (generate UUID if not present), store in request state for logging _(DONE - completed in Phase 1 and logging setup)_
-  - [ ] 4.5 Create `src/bookbytes/schemas/book.py` with schemas: `BookCreate(isbn: str)`, `BookIsbnResponse(isbn, isbn_type)`, `BookResponse(id, title, author, language, ..., isbns: list[BookIsbnResponse])`, `BookListResponse(books: list[BookResponse])`, `ProcessBookRequest(isbn: str)`, `ProcessBookResponse(job_id, status)`
+  - [ ] 4.5 Create `src/bookbytes/models/book.py` with `Book` model: `id` (UUID, PK), `title`, `author`, `language` (default 'en'), `edition`, `publisher`, `pages`, `publish_date`, `cover_url`, timestamps. Add relationship to `BookIsbn` and `Chapter`
+  - [ ] 4.6 Create `src/bookbytes/models/book.py` with `BookIsbn` model in same file: `id` (UUID, PK), `book_id` (FK to books), `isbn` (unique), `isbn_type` (Enum: isbn10, isbn13), `created_at`. Add index on `isbn`
+  - [ ] 4.7 Create `src/bookbytes/models/chapter.py` with `Chapter` model: `id` (UUID, PK), `book_id` (FK), `chapter_number`, `title`, `summary`, `audio_file_path`, `audio_url`, `word_count`, timestamps. Add unique constraint on `(book_id, chapter_number)`
+  - [ ] 4.8 Create `src/bookbytes/repositories/book.py` with `BookRepository` (add `get_by_language()`, `get_latest_by_title_language()`) and `BookIsbnRepository` (add `get_by_isbn()`, `get_isbns_for_book()`)
+  - [ ] 4.9 Create `src/bookbytes/repositories/chapter.py` with `ChapterRepository` adding `get_by_book_id()`, `get_by_book_and_number()`
+  - [ ] 4.10 Generate migration for Book, BookIsbn, Chapter models: `alembic revision --autogenerate -m "add_book_chapter_models"`
+  - [ ] 4.11 Create `src/bookbytes/schemas/book.py` with schemas: `BookCreate(isbn: str)`, `BookIsbnResponse(isbn, isbn_type)`, `BookResponse(id, title, author, language, ..., isbns: list[BookIsbnResponse])`, `BookListResponse(books: list[BookResponse])`, `ProcessBookRequest(isbn: str)`, `ProcessBookResponse(job_id, status)`
   - [ ] 4.6 Create `src/bookbytes/schemas/chapter.py` with schemas: `ChapterResponse(id, book_id, chapter_number, title, summary, audio_url, word_count)`, `ChapterListResponse(chapters: list[ChapterResponse])`, `AudioUrlResponse(url: str)`
   - [ ] 4.7 Create `src/bookbytes/api/v1/books.py` with endpoints: `POST /books/process` (enqueue processing, return job_id), `GET /books` (list all books), `GET /books/{book_id}` (get by UUID), `GET /books/isbn/{isbn}` (get by ISBN), `GET /books/{book_id}/chapters` (list chapters)
   - [ ] 4.8 Create `src/bookbytes/api/v1/chapters.py` with endpoints: `GET /chapters/{chapter_id}` (get chapter details), `GET /chapters/{chapter_id}/audio` (return audio URL or redirect)
@@ -204,7 +206,10 @@ Update the file after completing each sub-task, not just after completing an ent
 
 - [ ] 6.0 **Phase 6: JWT Authentication**
 
-  - [ ] 6.1 Create `src/bookbytes/core/security.py` with password utilities: `hash_password(password: str) -> str` using passlib bcrypt, `verify_password(plain: str, hashed: str) -> bool`
+  - [ ] 6.1 Create `src/bookbytes/models/user.py` with `User` model: `id` (UUID, PK), `email` (unique), `hashed_password`, `is_active` (default True), timestamps
+  - [ ] 6.2 Create `src/bookbytes/repositories/user.py` with `UserRepository` extending base, adding `get_by_email()` method
+  - [ ] 6.3 Generate migration for User model: `alembic revision --autogenerate -m "add_user_model"`
+  - [ ] 6.4 Create `src/bookbytes/core/security.py` with password utilities: `hash_password(password: str) -> str` using passlib bcrypt, `verify_password(plain: str, hashed: str) -> bool`
   - [ ] 6.2 Add JWT utilities in `security.py`: `create_access_token(data: dict, expires_delta: timedelta | None) -> str` using python-jose, `decode_access_token(token: str) -> dict` with validation
   - [ ] 6.3 Define JWT payload structure in `security.py`: `TokenPayload` dataclass with `sub` (user_id), `exp`, `iat`, `scope` (default: "access")
   - [ ] 6.4 Create `src/bookbytes/schemas/auth.py` with schemas: `UserCreate(email: EmailStr, password: str)`, `UserLogin(email: EmailStr, password: str)`, `UserResponse(id, email, is_active, created_at)`, `TokenResponse(access_token: str, token_type: str = "bearer")`
