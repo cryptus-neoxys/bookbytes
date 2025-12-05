@@ -1,0 +1,159 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "bookbytes"
+version = "0.1.0"
+description = "AI-powered book summarization and audio generation service"
+readme = "Readme.md"
+requires-python = ">=3.13"
+authors = [
+    { name = "BookBytes Team" }
+]
+keywords = ["book", "summary", "audio", "tts", "openai", "fastapi"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Web Environment",
+    "Framework :: FastAPI",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+    "Typing :: Typed",
+]
+dependencies = [
+    # Core
+    "fastapi",
+    "uvicorn[standard]",
+    "python-multipart",
+
+    # Async
+    "httpx",
+    "anyio",
+    "aiofiles",
+
+    # Database
+    "sqlalchemy[asyncio]",
+    "asyncpg",
+    "aiosqlite",
+    "alembic",
+
+    # Background Jobs
+    "arq",
+    "redis",
+
+    # Configuration
+    "pydantic",
+    "pydantic-settings",
+    "python-dotenv",
+
+    # Auth (JWT)
+    "python-jose[cryptography]",
+    "passlib[bcrypt]",
+
+    # Storage
+    "boto3",
+    "aioboto3",
+
+    # External APIs
+    "openai",
+    "gtts",
+
+    # Resilience
+    "tenacity",
+
+    # Observability
+    "structlog",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "respx",
+    "fakeredis",
+    "ruff",
+    "mypy",
+    "pre-commit",
+]
+
+[project.urls]
+Homepage = "https://github.com/cryptus-neoxys/bookbytes"
+Documentation = "https://github.com/cryptus-neoxys/bookbytes#readme"
+Repository = "https://github.com/cryptus-neoxys/bookbytes.git"
+Issues = "https://github.com/cryptus-neoxys/bookbytes/issues"
+
+[project.scripts]
+bookbytes = "bookbytes.main:cli"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/bookbytes"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+src = ["src"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "C4",     # flake8-comprehensions
+    "B",      # flake8-bugbear
+    "UP",     # pyupgrade
+    "ARG",    # flake8-unused-arguments
+    "SIM",    # flake8-simplify
+]
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "B008",   # do not perform function calls in argument defaults (for Depends())
+    "C901",   # too complex
+    "ARG001", # unused function argument (common in FastAPI dependencies)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["bookbytes"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = [
+    "gtts.*",
+    "arq.*",
+    "aioboto3.*",
+]
+ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["src/bookbytes"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]

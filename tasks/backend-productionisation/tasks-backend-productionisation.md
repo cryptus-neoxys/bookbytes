@@ -122,16 +122,16 @@ Update the file after completing each sub-task, not just after completing an ent
 
 ## Tasks
 
-- [ ] 1.0 **Phase 1: Project Structure & Configuration**
+- [x] 1.0 **Phase 1: Project Structure & Configuration**
 
-  - [ ] 1.1 Create the new folder structure: `src/bookbytes/` with subdirectories `api/`, `api/v1/`, `models/`, `schemas/`, `repositories/`, `services/`, `workers/`, `core/`, `storage/`
-  - [ ] 1.2 Create `__init__.py` files in each package directory to make them proper Python packages
-  - [ ] 1.3 Create `pyproject.toml` with project metadata, all dependencies from technical-considerations doc, and optional dev dependencies (pytest, ruff, etc.)
-  - [ ] 1.4 Create `src/bookbytes/config.py` with Pydantic `Settings` class that validates all environment variables: `APP_ENV`, `DEBUG`, `LOG_LEVEL`, `DATABASE_URL`, `REDIS_URL`, `STORAGE_BACKEND`, `AUTH_MODE`, `JWT_SECRET_KEY`, `OPENAI_API_KEY`, etc.
-  - [ ] 1.5 Create `src/bookbytes/main.py` with FastAPI application factory using `@asynccontextmanager` lifespan for startup/shutdown events (initialize DB, Redis connections)
-  - [ ] 1.6 Create `src/bookbytes/dependencies.py` with dependency injection functions: `get_settings()`, `get_db_session()`, `get_redis()` using FastAPI's `Depends()` pattern
-  - [ ] 1.7 Create `.env.example` with all environment variables documented with comments explaining each one
-  - [ ] 1.8 Verify the app starts: `uvicorn src.bookbytes.main:app --reload` should show FastAPI running (even with placeholder routes)
+  - [x] 1.1 Create the new folder structure: `src/bookbytes/` with subdirectories `api/`, `api/v1/`, `models/`, `schemas/`, `repositories/`, `services/`, `workers/`, `core/`, `storage/`
+  - [x] 1.2 Create `__init__.py` files in each package directory to make them proper Python packages
+  - [x] 1.3 Create `pyproject.toml` with project metadata, all dependencies from technical-considerations doc, and optional dev dependencies (pytest, ruff, etc.)
+  - [x] 1.4 Create `src/bookbytes/config.py` with Pydantic `Settings` class that validates all environment variables: `APP_ENV`, `DEBUG`, `LOG_LEVEL`, `DATABASE_URL`, `REDIS_URL`, `STORAGE_BACKEND`, `AUTH_MODE`, `JWT_SECRET_KEY`, `OPENAI_API_KEY`, etc.
+  - [x] 1.5 Create `src/bookbytes/main.py` with FastAPI application factory using `@asynccontextmanager` lifespan for startup/shutdown events (initialize DB, Redis connections)
+  - [x] 1.6 Create `src/bookbytes/dependencies.py` with dependency injection functions: `get_settings()`, `get_db_session()`, `get_redis()` using FastAPI's `Depends()` pattern
+  - [x] 1.7 Create `.env.example` with all environment variables documented with comments explaining each one
+  - [x] 1.8 Verify the app starts: `uvicorn src.bookbytes.main:app --reload` should show FastAPI running (even with placeholder routes)
 
 - [ ] 2.0 **Phase 2: Database Layer**
 
