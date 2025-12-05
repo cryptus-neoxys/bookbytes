@@ -2,11 +2,12 @@
 
 This module creates and configures the FastAPI application with:
 - Lifespan management for startup/shutdown events
-- Middleware configuration
+- Middleware configuration (CORS, request ID, logging)
 - Exception handlers
 - API routers
 """
 
+import time
 import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -17,6 +18,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from bookbytes.config import Settings, get_settings
+from bookbytes.core.exceptions import BookBytesError
+from bookbytes.core.logging import (
+    clear_correlation_id,
+    configure_logging,
+    get_logger,
+    set_correlation_id,
+)
+
+# Initialize logger for this module
+logger = get_logger(__name__)
 
 
 @asynccontextmanager
@@ -24,6 +35,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Manage application lifespan events.
 
     Handles initialization and cleanup of:
+    - Logging configuration
     - Database connection pool
     - Redis connection
     - Any other resources that need lifecycle management
@@ -39,17 +51,26 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # ========================================
     # Startup
     # ========================================
+    # Configure logging first
+    configure_logging(settings)
+
+    # Re-get logger after configuration
+    startup_logger = get_logger(__name__)
+
     # TODO: Initialize database connection pool (Phase 2)
     # TODO: Initialize Redis connection (Phase 3)
-    # TODO: Initialize structlog (Phase 7)
 
     # Store settings in app state for access in dependencies
     app.state.settings = settings
 
     # Log startup
-    print(f"Starting {settings.app_name} v{settings.app_version}")
-    print(f"Environment: {settings.app_env.value}")
-    print(f"Debug mode: {settings.debug}")
+    startup_logger.info(
+        "Application starting",
+        app_name=settings.app_name,
+        version=settings.app_version,
+        environment=settings.app_env.value,
+        debug=settings.debug,
+    )
 
     yield
 
@@ -60,7 +81,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # TODO: Close Redis connections gracefully (Phase 7)
     # TODO: Wait for in-flight requests (Phase 7)
 
-    print(f"Shutting down {settings.app_name}")
+    startup_logger.info("Application shutting down", app_name=settings.app_name)
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -125,17 +146,62 @@ def configure_middleware(app: FastAPI, settings: Settings) -> None:
         allow_headers=["*"],
     )
 
-    # Request ID middleware
+    # Request logging middleware
     @app.middleware("http")
-    async def add_request_id(request: Request, call_next: Any) -> Any:
-        """Add request ID to each request for tracing."""
+    async def logging_middleware(request: Request, call_next: Any) -> Any:
+        """Log requests and responses with correlation ID."""
+        # Generate or extract request ID
         request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
         request.state.request_id = request_id
 
-        response = await call_next(request)
-        response.headers["X-Request-ID"] = request_id
+        # Set correlation ID for all logs in this request context
+        set_correlation_id(request_id)
 
-        return response
+        # Log request start
+        request_logger = get_logger("bookbytes.request")
+        start_time = time.perf_counter()
+
+        request_logger.info(
+            "Request started",
+            method=request.method,
+            path=request.url.path,
+            query=str(request.query_params) if request.query_params else None,
+        )
+
+        try:
+            response = await call_next(request)
+
+            # Calculate duration
+            duration_ms = (time.perf_counter() - start_time) * 1000
+
+            # Log request completion
+            request_logger.info(
+                "Request completed",
+                method=request.method,
+                path=request.url.path,
+                status_code=response.status_code,
+                duration_ms=round(duration_ms, 2),
+            )
+
+            # Add request ID to response headers
+            response.headers["X-Request-ID"] = request_id
+
+            return response
+
+        except Exception as exc:
+            duration_ms = (time.perf_counter() - start_time) * 1000
+            request_logger.error(
+                "Request failed",
+                method=request.method,
+                path=request.url.path,
+                duration_ms=round(duration_ms, 2),
+                error=str(exc),
+            )
+            raise
+
+        finally:
+            # Clear correlation ID
+            clear_correlation_id()
 
 
 def configure_exception_handlers(app: FastAPI) -> None:
@@ -144,6 +210,37 @@ def configure_exception_handlers(app: FastAPI) -> None:
     Args:
         app: The FastAPI application instance
     """
+    exception_logger = get_logger("bookbytes.exceptions")
+
+    @app.exception_handler(BookBytesError)
+    async def bookbytes_exception_handler(
+        request: Request, exc: BookBytesError
+    ) -> JSONResponse:
+        """Handle BookBytes custom exceptions with structured error response."""
+        request_id = getattr(request.state, "request_id", None)
+
+        # Log at appropriate level based on status code
+        if exc.status_code >= 500:
+            exception_logger.error(
+                "Application error",
+                error_code=exc.code,
+                error_message=exc.message,
+                status_code=exc.status_code,
+                path=request.url.path,
+            )
+        else:
+            exception_logger.warning(
+                "Client error",
+                error_code=exc.code,
+                error_message=exc.message,
+                status_code=exc.status_code,
+                path=request.url.path,
+            )
+
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=exc.to_dict(request_id=request_id),
+        )
 
     @app.exception_handler(Exception)
     async def global_exception_handler(
@@ -152,8 +249,12 @@ def configure_exception_handlers(app: FastAPI) -> None:
         """Handle unexpected exceptions with a consistent error response."""
         request_id = getattr(request.state, "request_id", None)
 
-        # TODO: Replace with structlog in Phase 7
-        print(f"Unhandled exception: {exc}")
+        exception_logger.exception(
+            "Unhandled exception",
+            error_type=type(exc).__name__,
+            error_message=str(exc),
+            path=request.url.path,
+        )
 
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -193,7 +294,7 @@ def configure_routes(app: FastAPI) -> None:
     )
     async def readiness() -> dict[str, Any]:
         """Readiness probe checking dependent services."""
-        # TODO: Add actual health checks for DB and Redis in Phase 7
+        # TODO: Add actual health checks for DB and Redis in Phase 2/3
         return {
             "status": "ok",
             "checks": {

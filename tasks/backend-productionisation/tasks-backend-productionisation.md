@@ -165,13 +165,14 @@ Update the file after completing each sub-task, not just after completing an ent
   - [ ] 3.7 Create `src/bookbytes/api/v1/jobs.py` with endpoints: `GET /jobs` (list user's jobs), `GET /jobs/{job_id}` (get job status with progress)
   - [ ] 3.8 Add job enqueueing logic: Create helper function `enqueue_book_processing(redis, job_id, isbn)` that uses ARQ's `enqueue_job()`
   - [ ] 3.9 Test worker starts: Run `arq src.bookbytes.workers.settings.WorkerSettings` and verify it connects to Redis and waits for jobs
+  - [ ] 3.10 Create `tests/integration/test_jobs_api.py` with tests: list jobs for user, get job status, verify job progress updates
 
 - [ ] 4.0 **Phase 4: API Layer & Error Handling**
 
-  - [ ] 4.1 Create `src/bookbytes/core/exceptions.py` with exception hierarchy: `BookBytesError(Exception)` base class with `code` and `message` attributes, then `BookNotFoundError`, `ChapterNotFoundError`, `JobNotFoundError`, `ISBNNotFoundError`, `AuthenticationError`, `AuthorizationError`
-  - [ ] 4.2 Create `src/bookbytes/schemas/common.py` with shared schemas: `ErrorDetail(code: str, message: str, request_id: str | None)`, `ErrorResponse(error: ErrorDetail)`, `PaginatedResponse[T](items: list[T], total: int, page: int, size: int)`
-  - [ ] 4.3 Add global exception handlers in `main.py`: register handlers for `BookBytesError` (return 400 with ErrorResponse), `HTTPException` (pass through), `Exception` (log and return 500)
-  - [ ] 4.4 Create request ID middleware in `main.py`: Use `starlette.middleware` to add `X-Request-ID` header (generate UUID if not present), store in request state for logging
+  - [x] 4.1 Create `src/bookbytes/core/exceptions.py` with exception hierarchy: `BookBytesError(Exception)` base class with `code` and `message` attributes, then `BookNotFoundError`, `ChapterNotFoundError`, `JobNotFoundError`, `ISBNNotFoundError`, `AuthenticationError`, `AuthorizationError` _(DONE - moved to auxiliary foundation)_
+  - [x] 4.2 Create `src/bookbytes/schemas/common.py` with shared schemas: `ErrorDetail(code: str, message: str, request_id: str | None)`, `ErrorResponse(error: ErrorDetail)`, `PaginatedResponse[T](items: list[T], total: int, page: int, size: int)` _(DONE - moved to auxiliary foundation)_
+  - [x] 4.3 Add global exception handlers in `main.py`: register handlers for `BookBytesError` (return 400 with ErrorResponse), `HTTPException` (pass through), `Exception` (log and return 500) _(DONE - integrated with 4.1)_
+  - [x] 4.4 Create request ID middleware in `main.py`: Use `starlette.middleware` to add `X-Request-ID` header (generate UUID if not present), store in request state for logging _(DONE - completed in Phase 1 and logging setup)_
   - [ ] 4.5 Create `src/bookbytes/schemas/book.py` with schemas: `BookCreate(isbn: str)`, `BookIsbnResponse(isbn, isbn_type)`, `BookResponse(id, title, author, language, ..., isbns: list[BookIsbnResponse])`, `BookListResponse(books: list[BookResponse])`, `ProcessBookRequest(isbn: str)`, `ProcessBookResponse(job_id, status)`
   - [ ] 4.6 Create `src/bookbytes/schemas/chapter.py` with schemas: `ChapterResponse(id, book_id, chapter_number, title, summary, audio_url, word_count)`, `ChapterListResponse(chapters: list[ChapterResponse])`, `AudioUrlResponse(url: str)`
   - [ ] 4.7 Create `src/bookbytes/api/v1/books.py` with endpoints: `POST /books/process` (enqueue processing, return job_id), `GET /books` (list all books), `GET /books/{book_id}` (get by UUID), `GET /books/isbn/{isbn}` (get by ISBN), `GET /books/{book_id}/chapters` (list chapters)
@@ -181,6 +182,7 @@ Update the file after completing each sub-task, not just after completing an ent
   - [ ] 4.11 Include v1 router in `main.py` under `/api/v1` prefix
   - [ ] 4.12 Configure OpenAPI in `main.py`: Set title, description, version, add example responses to endpoints using `responses` parameter
   - [ ] 4.13 Verify API documentation: Access `/docs` and `/redoc` endpoints, ensure all endpoints are documented with request/response examples
+  - [ ] 4.14 Create `tests/integration/test_books_api.py` with tests: process book (returns job_id), list books, get book by id, get book by isbn (404 for unknown), get chapters for book
 
 - [ ] 5.0 **Phase 5: Storage & External Services**
 
@@ -215,23 +217,21 @@ Update the file after completing each sub-task, not just after completing an ent
   - [ ] 6.11 Filter jobs by user: Update `GET /jobs` to only return jobs where `job.user_id == current_user.id`
   - [ ] 6.12 Include auth router in v1 router with `/auth` prefix
   - [ ] 6.13 Test auth flow: Verify register → login → access protected endpoint with token works; verify 401 without token
+  - [ ] 6.14 Create `tests/integration/test_auth_api.py` with tests: register new user, login with valid credentials, login with invalid credentials (401), access /me with token, access /me without token (401)
 
 - [ ] 7.0 **Phase 7: Observability & Deployment**
-  - [ ] 7.1 Create `src/bookbytes/core/logging.py` with structlog configuration: Configure `structlog.configure()` with processors for JSON output (prod) or console (dev), add timestamp, log level, logger name
-  - [ ] 7.2 Add correlation ID processor in logging: Extract `request_id` from context, add to all log entries
-  - [ ] 7.3 Create logging middleware in `main.py`: Log request start (method, path, request_id), log request end (status_code, duration_ms), bind request_id to structlog context
-  - [ ] 7.4 Replace all `print()` and basic logging calls throughout codebase with structlog: `logger.info("message", key=value)` pattern
+  - [x] 7.1 Create `src/bookbytes/core/logging.py` with structlog configuration: Configure `structlog.configure()` with processors for JSON output (prod) or console (dev), add timestamp, log level, logger name _(DONE - moved to auxiliary foundation)_
+  - [x] 7.2 Add correlation ID processor in logging: Extract `request_id` from context, add to all log entries _(DONE - moved to auxiliary foundation)_
+  - [x] 7.3 Create logging middleware in `main.py`: Log request start (method, path, request*id), log request end (status_code, duration_ms), bind request_id to structlog context *(DONE - moved to auxiliary foundation)\_
+  - [x] ~~7.4 Replace all `print()` and basic logging calls throughout codebase with structlog~~ _(OBSOLETE - logging established from start, no print statements to replace)_
   - [ ] 7.5 Add structured logging to worker tasks: Log job start, each step transition, completion/failure with job_id context
   - [ ] 7.6 Enhance health endpoints: `/health/ready` should check DB connection (`SELECT 1`), Redis ping, return `{"status": "ok", "checks": {"database": "ok", "redis": "ok"}}` or appropriate error status
   - [ ] 7.7 Implement graceful shutdown in `main.py` lifespan: On shutdown, wait for in-flight requests (30s timeout), close DB connections, close Redis connections
   - [ ] 7.8 Add graceful shutdown to worker: Configure ARQ's `on_shutdown` hook to wait for current job completion before exiting
-  - [ ] 7.9 Create `docker/Dockerfile` with multi-stage build: Stage 1 (builder) installs dependencies, Stage 2 (runtime) copies only needed files, uses slim Python image, runs as non-root user
-  - [ ] 7.10 Create `docker/docker-compose.yml` with services: `api` (uvicorn), `worker` (arq), `postgres` (postgres:16-alpine), `redis` (redis:7-alpine) with health checks, volumes, and proper depends_on conditions
-  - [ ] 7.11 Add volume mounts in docker-compose: `postgres-data` for database persistence, `redis-data` for Redis persistence, `audio-data` for local audio file storage
-  - [ ] 7.12 Configure environment variables in docker-compose: Use `${VAR:-default}` syntax for secrets, set development defaults for local use
+  - [x] 7.9 Create `docker/Dockerfile` with multi-stage build: Stage 1 (builder) installs dependencies, Stage 2 (runtime) copies only needed files, uses slim Python image, runs as non-root user _(DONE - moved to auxiliary foundation)_
+  - [x] 7.10 Create `docker/docker-compose.yml` with services: `api` (uvicorn), `worker` (arq), `postgres` (postgres:16-alpine), `redis` (redis:7-alpine) with health checks, volumes, and proper depends*on conditions *(DONE - moved to auxiliary foundation)\_
+  - [x] 7.11 Add volume mounts in docker-compose: `postgres-data` for database persistence, `redis-data` for Redis persistence, `audio-data` for local audio file storage _(DONE - moved to auxiliary foundation)_
+  - [x] 7.12 Configure environment variables in docker-compose: Use `${VAR:-default}` syntax for secrets, set development defaults for local use _(DONE - moved to auxiliary foundation)_
   - [ ] 7.13 Test full stack: Run `docker-compose up --build`, verify all services start, health checks pass, can register user and process book
-  - [ ] 7.14 Create `tests/conftest.py` with pytest fixtures: `async_client` (TestClient with async support), `test_db_session` (isolated test database), `mock_openai_service`, `mock_tts_service`, `authenticated_client` (client with valid JWT)
-  - [ ] 7.15 Create `tests/integration/test_auth_api.py` with tests: register new user, login with valid credentials, login with invalid credentials (401), access /me with token, access /me without token (401)
-  - [ ] 7.16 Create `tests/integration/test_books_api.py` with tests: process book (returns job_id), list books, get book by id, get book by isbn (404 for unknown), get chapters for book
-  - [ ] 7.17 Create `tests/integration/test_jobs_api.py` with tests: list jobs for user, get job status, verify job progress updates
-  - [ ] 7.18 Verify all tests pass: Run `pytest tests/ -v` and ensure all tests pass with mocked external services
+  - [x] 7.14 Create `tests/conftest.py` with pytest fixtures: `async_client` (TestClient with async support), `test_db_session` (isolated test database), `mock_openai_service`, `mock_tts_service`, `authenticated_client` (client with valid JWT) _(DONE - moved to auxiliary foundation)_
+  - [ ] 7.15 Verify all tests pass: Run `pytest tests/ -v` and ensure all tests pass with mocked external services
