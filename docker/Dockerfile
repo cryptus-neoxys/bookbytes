@@ -1,13 +1,8 @@
-# =============================================================================
 # BookBytes Multi-Stage Dockerfile
-# =============================================================================
 # Stage 1: Builder - installs dependencies
 # Stage 2: Runtime - minimal production image
-# =============================================================================
 
-# -----------------------------------------------------------------------------
 # Stage 1: Builder
-# -----------------------------------------------------------------------------
 FROM python:3.13-slim AS builder
 
 # Install uv for fast package management
@@ -22,16 +17,15 @@ COPY pyproject.toml uv.lock ./
 # Create virtual environment and install dependencies
 RUN uv sync --frozen --no-dev --no-install-project
 
-# Copy source code
+# Copy source code and README (needed for hatchling build)
 COPY src/ src/
+COPY Readme.md ./
 
 # Install the project itself
 RUN uv sync --frozen --no-dev
 
 
-# -----------------------------------------------------------------------------
 # Stage 2: Runtime
-# -----------------------------------------------------------------------------
 FROM python:3.13-slim AS runtime
 
 # Install runtime dependencies
@@ -75,4 +69,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:${PORT}/health/live || exit 1
 
 # Default command (can be overridden in docker-compose)
-CMD ["uvicorn", "bookbytes.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Use shell form to interpolate PORT env var
+CMD uvicorn bookbytes.main:app --host 0.0.0.0 --port ${PORT}

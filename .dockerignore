@@ -56,5 +56,6 @@ test_*.py
 docs/
 *.md
 !README.md
+!Readme.md
 knowledge/
 samples/
