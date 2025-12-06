@@ -66,6 +66,9 @@ dependencies = [
 
     # Observability
     "structlog",
+
+    # UUIDs
+    "uuid6",  # RFC 9562 UUIDv7 (backport until Python 3.14)
 ]
 
 [project.optional-dependencies]

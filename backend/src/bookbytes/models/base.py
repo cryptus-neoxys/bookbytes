@@ -2,7 +2,7 @@
 
 This module provides:
 - Base: Declarative base for all models
-- UUIDPrimaryKeyMixin: UUID primary key for all entities
+- UUIDPrimaryKeyMixin: UUIDv7 primary key for all entities (time-sortable)
 - TimestampMixin: created_at and updated_at columns
 
 Usage:
@@ -18,6 +18,7 @@ from datetime import datetime
 
 from sqlalchemy import DateTime, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, declared_attr, mapped_column
+from uuid6 import uuid7
 
 
 class Base(DeclarativeBase):
@@ -30,19 +31,23 @@ class Base(DeclarativeBase):
 
 
 class UUIDPrimaryKeyMixin:
-    """Mixin that adds a UUID primary key column.
+    """Mixin that adds a UUIDv7 primary key column.
 
-    All entities should use UUID as primary key for:
-    - Security (not guessable)
+    All entities use UUIDv7 as primary key for:
+    - Time-sortable (monotonically increasing within millisecond)
+    - Better B-tree index performance (sequential inserts)
+    - Security (not guessable like auto-increment)
     - Distributed ID generation (no central sequence)
     - URL-safe identifiers
+
+    Uses uuid6 library (RFC 9562 compliant) until Python 3.14 adds native support.
     """
 
     @declared_attr
     def id(cls) -> Mapped[uuid.UUID]:
         return mapped_column(
             primary_key=True,
-            default=uuid.uuid4,
+            default=uuid7,
             nullable=False,
         )
 

@@ -58,17 +58,17 @@ This module implements the enhanced book search flow with:
 
 > **Prerequisite:** Before creating new models, set up UUIDv7 infrastructure.
 
-- [ ] 3.0.1 Add `uuid6` library to `pyproject.toml`
+- [x] 3.0.1 Add `uuid6` library to `pyproject.toml`
 
   - RFC 9562 compliant backport for Python <3.14
   - Will switch to stdlib `uuid.uuid7()` when on Python 3.14
 
-- [ ] 3.0.2 Install `pg_idkit` PostgreSQL extension
+- [x] 3.0.2 Install `pg_idkit` PostgreSQL extension
 
   - Supports UUIDv7 generation in database
   - Create migration to install extension: `CREATE EXTENSION IF NOT EXISTS pg_idkit`
 
-- [ ] 3.0.3 Update `models/base.py` `UUIDPrimaryKeyMixin`
+- [x] 3.0.3 Update `models/base.py` `UUIDPrimaryKeyMixin`
   - Change from `uuid.uuid4` to `uuid6.uuid7`
   - Keep PostgreSQL default as app-generated (no DB function)
 
@@ -89,38 +89,38 @@ default=uuid7
 
 ### Phase 3.A: Data Models & Migrations
 
-- [ ] 3.A.1 Create `models/work.py` with `Work` model
+- [x] 3.A.1 Create `models/work.py` with `Work` model
 
   - UUID primary key (v7), title, authors (JSON), first_publish_year, subjects (JSON), cover_url
   - Relationship to `editions` and `book_providers`
   - No provider-specific fields
 
-- [ ] 3.A.2 Create `models/edition.py` with `Edition` model
+- [x] 3.A.2 Create `models/edition.py` with `Edition` model
 
   - work_id FK, isbn (unique, indexed), isbn_type, title, publisher, publish_year, language, pages
   - Relationship to `work`, `audio_book`, `book_providers`
 
-- [ ] 3.A.3 Create `models/book_provider.py` with `BookProvider` model
+- [x] 3.A.3 Create `models/book_provider.py` with `BookProvider` model
 
   - entity_type ("work" | "edition"), entity_id, provider, external_key
   - Nullable FKs: work_id, edition_id (polymorphic pattern)
   - Unique constraint on (provider, external_key)
   - Index on (entity_type, entity_id)
 
-- [ ] 3.A.4 Create `models/audio_book.py` with `AudioBook` model
+- [x] 3.A.4 Create `models/audio_book.py` with `AudioBook` model
 
   - edition_id FK, status enum, version
   - Uses SoftDeleteMixin
 
-- [ ] 3.A.5 Update `models/chapter.py` to reference AudioBook
+- [x] 3.A.5 Create `models/chapter.py` for AudioBook
 
   - audio_book_id FK, chapter_number, title, summary, audio paths, word_count, duration
 
-- [ ] 3.A.6 Create `models/api_cache.py` with `APICache` model
+- [x] 3.A.6 Create `models/api_cache.py` with `APICache` model
 
   - cache_key (unique, indexed), source, response_json, total_results, expires_at (indexed), original_ttl, hit_count
 
-- [ ] 3.A.7 Update `models/__init__.py` with new model exports
+- [x] 3.A.7 Update `models/__init__.py` with new model exports
 
 - [ ] 3.A.8 Generate migration: `alembic revision --autogenerate -m "add_audio_books_library_models"`
 
