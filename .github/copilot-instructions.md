@@ -1,47 +1,79 @@
 # BookBytes AI Coding Instructions
 
-## 🧠 Project Overview
+## Project Overview
 
-BookBytes converts physical books (via ISBN) into chapter-wise audio summaries.
+BookBytes converts physical books (via ISBN) into chapter-wise audio summaries. Currently being refactored from Flask monolith to production FastAPI.
 
-- **Core Logic**: `BookBytesApp` class in `app.py` orchestrates the entire pipeline.
-- **Stack**: Python 3.8+, Flask, SQLite, OpenAI GPT-3.5, gTTS.
-- **Data Flow**: ISBN -> Open Library API (Metadata) -> OpenAI (Chapter extraction & Summaries) -> gTTS (Audio) -> SQLite (Persistence).
+- **Stack**: Python 3.13+, FastAPI, PostgreSQL (async), Redis, ARQ workers, OpenAI, gTTS
+- **Data Flow**: ISBN → Open Library API → OpenAI (chapters + summaries) → gTTS → Storage (local/S3)
 
-## 🏗 Architecture & Patterns
+## Architecture (`src/bookbytes/`)
 
-- **Service Layer**: `BookBytesApp` encapsulates all business logic. Do not put logic in Flask routes or CLI commands; they should only call `BookBytesApp` methods.
-- **Data Models**: Use `@dataclass` for entities (`Book`, `Chapter`) defined in `app.py`.
-- **Database**: SQLite with raw SQL queries in `BookBytesApp`. Tables: `books`, `chapters`.
-- **Logging**: MUST use `logger.py`. Import with `from logger import get_logger`.
-  ```python
-  logger = get_logger(__name__)
-  logger.info("Message", extra={"context": "value"})
-  ```
-- **Path Handling**: Always use `pathlib.Path` instead of `os.path`.
+```
+main.py          # FastAPI app factory with lifespan, middleware, exception handlers
+config.py        # Pydantic Settings with env validation (Settings class, enums)
+dependencies.py  # FastAPI Depends() injection container
+core/
+  exceptions.py  # Exception hierarchy (BookBytesError base, domain-specific subclasses)
+  logging.py     # Structlog config with correlation ID support
+api/v1/          # Versioned API routers
+services/        # Business logic (call from routes, not vice versa)
+repositories/    # Database access layer (SQLAlchemy async)
+schemas/         # Pydantic request/response models (BaseSchema in common.py)
+models/          # SQLAlchemy ORM models
+storage/         # Pluggable storage (local dev, S3 prod)
+workers/         # ARQ background job handlers
+```
 
-## 🛠 Workflows & Commands
+## Logging (MUST use structlog)
 
-- **Run API**: `python app.py` (Starts Flask server on port 5000).
-- **Run CLI**: `python cli.py [command]` (e.g., `process --isbn <isbn>`).
-- **Docker**: `docker-compose up -d` (Runs app + persists data in `bookbytes-data` volume).
-- **Testing**:
-  - `test_app.py` is a standalone integration test script, NOT a pytest suite.
-  - Run against a running server: `python test_app.py`.
-  - Ensure `OPENAI_API_KEY` is set in `.env` before running.
+```python
+from bookbytes.core.logging import get_logger
+logger = get_logger(__name__)
+logger.info("Processing book", isbn="123", user_id="abc")  # Key-value pairs, not f-strings
+```
 
-## 📦 Dependencies & Integrations
+Correlation IDs are auto-injected via middleware. Use `set_correlation_id()` for background jobs.
 
-- **External APIs**:
-  - Open Library (Book metadata).
-  - OpenAI API (Summarization, Chapter detection).
-- **Audio**: `gTTS` (Google Text-to-Speech) saves files to `audio/` directory.
-- **Environment**: Load vars using `python-dotenv` (handled in `cli.py` and `app.py`).
+## Exceptions Pattern
 
-## 🚨 Critical Conventions
+Raise domain exceptions from `core/exceptions.py`, never raw `Exception`. Global handlers convert to JSON:
 
-- **Error Handling**: Catch exceptions in `BookBytesApp` methods and return a result dict (`{'success': False, 'message': ...}`) rather than raising exceptions to the caller.
-- **File Structure**:
-  - `app.py`: Monolithic core (API + Logic + Models).
-  - `cli.py`: CLI wrapper around `BookBytesApp`.
-  - `knowledge/`: Documentation storage.
+```python
+from bookbytes.core.exceptions import BookNotFoundError
+raise BookNotFoundError(isbn="123")  # Returns {"error": {"code": "BOOK_NOT_FOUND", ...}}
+```
+
+## Configuration
+
+All config via `Settings` class in `config.py`. Access with `get_settings()` (cached) or `SettingsDep` in routes:
+
+```python
+from bookbytes.config import get_settings
+settings = get_settings()
+if settings.is_development: ...
+```
+
+## Commands
+
+- **Run API**: `uv run python -m bookbytes.main` or `uv run uvicorn bookbytes.main:app --reload`
+- **Tests**: `uv run pytest tests/` (async fixtures in `tests/conftest.py`)
+- **Lint**: `uv run ruff check src/ tests/` | **Format**: `uv run ruff format src/ tests/`
+- **Type check**: `uv run mypy src/`
+
+## Testing Conventions
+
+- Use fixtures from `tests/conftest.py`: `async_client`, `authenticated_client`, `test_settings`
+- Mock external services (OpenAI, Open Library) using `tests/mocks/`
+
+## Key Conventions
+
+- **Async everywhere**: All DB/HTTP ops must use `async/await`
+- **Pydantic schemas**: Inherit from `BaseSchema` in `schemas/common.py` (auto ORM conversion)
+- **Enums for options**: Use `str, Enum` pattern (e.g., `Environment`, `StorageBackend`) for type-safe configs
+- **Path handling**: Use `pathlib.Path`, never `os.path`
+- **Auth modes**: `API_KEY` for dev (header `X-API-Key`), `JWT` for prod
+
+## Legacy Code (root-level)
+
+`app.py`, `cli.py`, `test_app.py` are the original Flask implementation—reference for business logic only.
