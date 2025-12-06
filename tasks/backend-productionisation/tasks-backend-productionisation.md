@@ -147,21 +147,19 @@ Update the file after completing each sub-task, not just after completing an ent
   - [x] 2.10 Create `tests/integration/test_database.py` to verify database connection and session lifecycle
   - [ ] 2.11 Test database setup: Start postgres via docker-compose, verify connection works
 
-- [ ] 3.0 **Phase 3: Background Job Queue**
+- [ ] 3.0 **Phase 3: Audio Books Library** → [tasks-audio-books-library.md](./audio-books-library/tasks-audio-books-library.md)
 
-  - [ ] 3.1 Create `src/bookbytes/models/job.py` with `Job` model: `id` (UUID, PK), `user_id` (FK, nullable), `type` (Enum: process_book), `status` (Enum: pending, processing, completed, failed), `book_id` (FK, nullable), `isbn`, `error`, `progress` (0-100), `current_step`, timestamps including `started_at`, `completed_at`
-  - [ ] 3.2 Create `src/bookbytes/repositories/job.py` with `JobRepository` adding `get_by_user_id()`, `get_pending_jobs()`, `update_status()`, `update_progress()`
-  - [ ] 3.3 Generate migration for Job model: `alembic revision --autogenerate -m "add_job_model"`
-  - [ ] 3.4 Create `src/bookbytes/workers/settings.py` with ARQ `WorkerSettings` class: define `redis_settings` from config, `functions` list, `max_jobs=5` (from `WORKER_MAX_JOBS` env var), `job_timeout=600` (10 min for book processing)
-  - [ ] 3.5 Create `src/bookbytes/workers/tasks.py` with `process_book_task(ctx, job_id: str, isbn: str)` async function that will orchestrate the pipeline (placeholder implementation for now)
-  - [ ] 3.6 Implement job lifecycle in `process_book_task`: update job status to `processing` at start, update `progress` and `current_step` during execution, set `completed` or `failed` at end
-  - [ ] 3.7 Define processing steps as constants: `STEP_FETCHING_METADATA = "fetching_metadata"`, `STEP_EXTRACTING_CHAPTERS = "extracting_chapters"`, `STEP_GENERATING_SUMMARIES = "generating_summaries"`, `STEP_CREATING_AUDIO = "creating_audio"`
-  - [ ] 3.8 Add startup hook in `workers/settings.py` to initialize database session factory for use within worker tasks
-  - [ ] 3.9 Create `src/bookbytes/schemas/job.py` with Pydantic schemas: `JobCreate(isbn: str)`, `JobResponse(id, type, status, progress, current_step, created_at, ...)`, `JobListResponse(jobs: list[JobResponse])`
-  - [ ] 3.10 Create `src/bookbytes/api/v1/jobs.py` with endpoints: `GET /jobs` (list user's jobs), `GET /jobs/{job_id}` (get job status with progress)
-  - [ ] 3.11 Add job enqueueing logic: Create helper function `enqueue_book_processing(redis, job_id, isbn)` that uses ARQ's `enqueue_job()`
-  - [ ] 3.12 Test worker starts: Run `arq src.bookbytes.workers.settings.WorkerSettings` and verify it connects to Redis and waits for jobs
-  - [ ] 3.13 Create `tests/integration/test_jobs_api.py` with tests: list jobs for user, get job status, verify job progress updates
+  > **Design Doc:** [design-doc.md](./audio-books-library/design-doc.md)
+
+  This phase has been moved to a dedicated module. Key components:
+
+  - 3.A: Data Models (Work, Edition, BookProvider, AudioBook, Chapter, APICache)
+  - 3.B: Cache Service (Two-tier: Redis + PostgreSQL)
+  - 3.C: OpenLibrary Service (API client with caching)
+  - 3.D: Library Service (Provider-agnostic book management)
+  - 3.E: API Endpoints (Search, process, refresh)
+  - 3.F: Background Jobs (Audiobook generation)
+  - 3.G: Testing
 
 - [ ] 4.0 **Phase 4: API Layer & Error Handling**
 
