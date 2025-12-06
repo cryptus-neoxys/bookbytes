@@ -64,10 +64,11 @@ This module implements the enhanced book search flow with:
   - RFC 9562 compliant backport for Python <3.14
   - Will switch to stdlib `uuid.uuid7()` when on Python 3.14
 
-- [x] 3.0.2 Install `pg_idkit` PostgreSQL extension
+- [x] ~~3.0.2 Install `pg_idkit` PostgreSQL extension~~ **REMOVED** - Using app-generated UUIDs
 
-  - Supports UUIDv7 generation in database
-  - Create migration to install extension: `CREATE EXTENSION IF NOT EXISTS pg_idkit`
+  - pg_idkit not available in standard PostgreSQL images
+  - UUIDv7 generated in Python via `uuid6.uuid7()`, stored in native UUID column
+  - No database extension required
 
 - [x] 3.0.3 Update `models/base.py` `UUIDPrimaryKeyMixin`
   - Change from `uuid.uuid4` to `uuid6.uuid7`
@@ -121,9 +122,9 @@ default=uuid7
 
 - [x] 3.A.7 Update `models/__init__.py` with new model exports
 
-- [ ] 3.A.8 Generate migration: `alembic revision --autogenerate -m "add_audio_books_library_models"`
+- [x] 3.A.8 Generate migration: `alembic revision --autogenerate -m "add_audio_books_library_models"`
 
-- [ ] 3.A.9 Run migration: `alembic upgrade head`
+- [x] 3.A.9 Run migration: `alembic upgrade head`
 
 ---
 
@@ -131,35 +132,35 @@ default=uuid7
 
 > **Note:** No APICacheRepository - CacheService handles all cache operations directly.
 
-- [ ] 3.A-R.1 Create `repositories/work.py` with `WorkRepository`
+- [x] 3.A-R.1 Create `repositories/work.py` with `WorkRepository`
 
   - `get_by_title_author()` - find by title and author combination
   - `get_with_editions()` - eager load editions
 
-- [ ] 3.A-R.2 Create `repositories/edition.py` with `EditionRepository`
+- [x] 3.A-R.2 Create `repositories/edition.py` with `EditionRepository`
 
   - `get_by_isbn()` - find by normalized ISBN
   - `get_by_work_id()` - all editions for a work
   - `get_latest_by_work()` - latest by publish_year
 
-- [ ] 3.A-R.3 Create `repositories/book_provider.py` with `BookProviderRepository`
+- [x] 3.A-R.3 Create `repositories/book_provider.py` with `BookProviderRepository`
 
   - `get_by_provider_key()` - find by (provider, external_key)
   - `get_for_entity()` - all providers for a work/edition
   - `create_mapping()` - link entity to provider
 
-- [ ] 3.A-R.4 Create `repositories/audio_book.py` with `AudioBookRepository`
+- [x] 3.A-R.4 Create `repositories/audio_book.py` with `AudioBookRepository`
 
   - Extends `SoftDeleteRepository` for soft delete support
   - `get_by_edition()` - find audiobook for edition
   - `get_by_status()` - filter by processing status
 
-- [ ] 3.A-R.5 Update `repositories/chapter.py` with `ChapterRepository`
+- [x] 3.A-R.5 Create `repositories/chapter.py` with `ChapterRepository`
 
   - `get_by_audio_book()` - all chapters for audiobook
   - `get_by_number()` - specific chapter
 
-- [ ] 3.A-R.6 Update `repositories/__init__.py` with new exports
+- [x] 3.A-R.6 Update `repositories/__init__.py` with new exports
 
 ---
 
@@ -167,30 +168,30 @@ default=uuid7
 
 > **Simplified:** Using Redis-only caching with AOF persistence. No PostgreSQL cache table.
 
-- [ ] 3.B.1 Create `services/cache.py` with `CacheService` class
+- [x] 3.B.1 Create `services/cache.py` with `CacheService` class
 
   - Redis-only with AOF persistence (survives restarts)
   - Inject Redis client
 
-- [ ] 3.B.2 Implement `get()` method
+- [x] 3.B.2 Implement `get()` method
 
   - Check Redis, return (data, needs_revalidation) tuple
   - Track remaining TTL for stale-while-revalidate
 
-- [ ] 3.B.3 Implement `set()` method with TTL jitter
+- [x] 3.B.3 Implement `set()` method with TTL jitter
 
   - Store in Redis with ±10% jitter to prevent stampede
 
-- [ ] 3.B.4 Implement `invalidate()` and `invalidate_pattern()`
+- [x] 3.B.4 Implement `invalidate()` and `invalidate_pattern()`
 
   - Delete by key or by pattern (e.g., `search:*`)
 
-- [ ] 3.B.5 Implement stale-while-revalidate logic
+- [x] 3.B.5 Implement stale-while-revalidate logic
 
   - Return stale data at <20% TTL remaining
   - Trigger background refresh
 
-- [ ] 3.B.6 Add cache key generation helper
+- [x] 3.B.6 Add cache key generation helper
   - Normalize params (lowercase, trim, sort)
   - SHA256 hash for storage efficiency
 
@@ -351,8 +352,7 @@ default=uuid7
 
 ## Notes
 
-- **UUIDv7:** Using `uuid6` library (RFC 9562 compliant) until Python 3.14
-- **PostgreSQL:** `pg_idkit` extension for UUIDv7 generation capability
+- **UUIDv7:** Using `uuid6` library (RFC 9562 compliant) until Python 3.14, app-generated (no DB extension needed)
 - **Language Codes:** Edition uses ISO 639-2/B (bibliographic) codes per MARC/ONIX standards
 - All models use `UUIDPrimaryKeyMixin` (now v7) and `TimestampMixin`
 - AudioBook uses `SoftDeleteMixin` for soft deletion
