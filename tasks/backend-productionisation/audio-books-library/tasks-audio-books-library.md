@@ -22,11 +22,12 @@ This module implements the enhanced book search flow with:
 ### Models
 
 - `src/bookbytes/models/work.py` - Work model (provider-agnostic)
-- `src/bookbytes/models/edition.py` - Edition model with ISBN
+- `src/bookbytes/models/edition.py` - Edition model with ISBN (ISO 639-2/B language codes)
 - `src/bookbytes/models/book_provider.py` - Provider mapping (polymorphic)
 - `src/bookbytes/models/audio_book.py` - AudioBook model
 - `src/bookbytes/models/chapter.py` - Chapter model
-- `src/bookbytes/models/api_cache.py` - API cache for raw responses
+
+> **Note:** No `api_cache.py` - using Redis-only caching with AOF persistence.
 
 ### Repositories
 
@@ -116,9 +117,7 @@ default=uuid7
 
   - audio_book_id FK, chapter_number, title, summary, audio paths, word_count, duration
 
-- [x] 3.A.6 Create `models/api_cache.py` with `APICache` model
-
-  - cache_key (unique, indexed), source, response_json, total_results, expires_at (indexed), original_ttl, hit_count
+- [x] ~~3.A.6 Create `models/api_cache.py`~~ **REMOVED** - Using Redis-only caching
 
 - [x] 3.A.7 Update `models/__init__.py` with new model exports
 
@@ -164,40 +163,34 @@ default=uuid7
 
 ---
 
-### Phase 3.B: Cache Service
+### Phase 3.B: Cache Service (Redis-Only)
+
+> **Simplified:** Using Redis-only caching with AOF persistence. No PostgreSQL cache table.
 
 - [ ] 3.B.1 Create `services/cache.py` with `CacheService` class
 
-  - Two-tier: Redis (L1) + PostgreSQL (L2)
-  - Inject Redis client and DB session
-  - Directly manages APICache table (no repository needed)
+  - Redis-only with AOF persistence (survives restarts)
+  - Inject Redis client
 
 - [ ] 3.B.2 Implement `get()` method
 
-  - Check Redis first, then PostgreSQL on miss
-  - Return (data, needs_revalidation) tuple
+  - Check Redis, return (data, needs_revalidation) tuple
   - Track remaining TTL for stale-while-revalidate
 
 - [ ] 3.B.3 Implement `set()` method with TTL jitter
 
-  - Store in both Redis and PostgreSQL
-  - Add ±10% random jitter to prevent stampede
+  - Store in Redis with ±10% jitter to prevent stampede
 
 - [ ] 3.B.4 Implement `invalidate()` and `invalidate_pattern()`
 
-  - Delete from both tiers
-  - Pattern support for search cache invalidation
+  - Delete by key or by pattern (e.g., `search:*`)
 
 - [ ] 3.B.5 Implement stale-while-revalidate logic
 
   - Return stale data at <20% TTL remaining
   - Trigger background refresh
 
-- [ ] 3.B.6 Add async storage method for fire-and-forget caching
-
-  - Used when returning OpenLibrary response immediately
-
-- [ ] 3.B.7 Add cache key generation helper
+- [ ] 3.B.6 Add cache key generation helper
   - Normalize params (lowercase, trim, sort)
   - SHA256 hash for storage efficiency
 
@@ -360,10 +353,12 @@ default=uuid7
 
 - **UUIDv7:** Using `uuid6` library (RFC 9562 compliant) until Python 3.14
 - **PostgreSQL:** `pg_idkit` extension for UUIDv7 generation capability
+- **Language Codes:** Edition uses ISO 639-2/B (bibliographic) codes per MARC/ONIX standards
 - All models use `UUIDPrimaryKeyMixin` (now v7) and `TimestampMixin`
 - AudioBook uses `SoftDeleteMixin` for soft deletion
 - AudioBookRepository extends `SoftDeleteRepository`
 - BookProvider is a sparse/polymorphic table (see design doc for query patterns)
-- **No APICacheRepository:** CacheService manages APICache directly
+- **Redis-only caching:** No PostgreSQL cache table, uses AOF persistence (`appendfsync everysec`)
+- **Cache vs Library:** Search cache is transient (Redis), library data is permanent (Work/Edition in PostgreSQL)
 - Redis memory policy: `allkeys-lru` with 256mb limit
 - OpenLibrary requires User-Agent header to avoid rate limiting

@@ -57,7 +57,7 @@ class Edition(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     publisher: Mapped[str | None] = mapped_column(String(200), nullable=True)
     publish_year: Mapped[int | None] = mapped_column(nullable=True, index=True)
     language: Mapped[str] = mapped_column(
-        String(7), nullable=False, default="eng"
+        String(3), nullable=False, default="eng"
     )  # ISO 639-2/B (bibliographic) code - standard for MARC/ONIX publishing
     pages: Mapped[int | None] = mapped_column(nullable=True)
 

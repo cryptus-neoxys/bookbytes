@@ -308,25 +308,15 @@ async def link_to_provider(work: Work, provider: str, key: str) -> None:
 
 ### API Cache Model
 
-```python
-class APICache(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    """TTL-based cache for raw OpenLibrary API responses."""
-    __tablename__ = "api_cache"
-
-    cache_key: Mapped[str] = mapped_column(unique=True, index=True)
-    response_json: Mapped[dict]  # Raw API response
-    expires_at: Mapped[datetime]
-    hit_count: Mapped[int] = 0
-```
+> **REMOVED:** The `APICache` PostgreSQL table has been removed. See below for rationale.
 
 ### Cache TTL Policy
 
-| Data Type       | TTL       | Rationale                      |
+| Data Type       | Redis TTL | Rationale                      |
 | --------------- | --------- | ------------------------------ |
 | Search results  | 24 hours  | Balance freshness vs API calls |
 | Work details    | 7 days    | Stable metadata                |
 | Edition details | 7 days    | Stable metadata                |
-| (Library data)  | Permanent | Owned by us                    |
 
 ### 4. Cache Key Design (Pagination & Ordering)
 
@@ -378,13 +368,29 @@ Search: title="Lord of the Rings" (no author)
 Key:    search:b9c8d7e6f5a4b3c2  (DIFFERENT - different params)
 ```
 
-### 5. Two-Tier Caching Strategy (Redis + PostgreSQL)
+### 5. Cache Strategy: Redis-Only with AOF Persistence
 
-**Problems Solved:**
+> **Key Clarification:** There are two distinct data categories:
+>
+> | Category         | Storage    | Purpose                  | Persistence                           |
+> | ---------------- | ---------- | ------------------------ | ------------------------------------- |
+> | **Search Cache** | Redis only | Avoid repeated API calls | Temporary (survives restarts via AOF) |
+> | **Library Data** | PostgreSQL | Our processed books      | Permanent (Works, Editions)           |
+>
+> Search results are **transient** - if lost, users simply re-search. The important data (processed books) lives permanently in PostgreSQL Work/Edition tables.
 
-1. **Server restart** - Cache survives via PostgreSQL backup
-2. **Horizontal scaling** - Redis provides consistent cache across all API instances
-3. **Performance** - Redis for fast access, PostgreSQL for persistence
+**Why Not Two-Tier (Redis + PostgreSQL)?**
+
+Originally we planned PostgreSQL as L2 cache backup. After analysis:
+
+| Concern                | Reality                                                                                     |
+| ---------------------- | ------------------------------------------------------------------------------------------- |
+| **Survives restarts?** | Redis AOF with `appendfsync everysec` survives restarts (max 1 sec data loss)               |
+| **Cache important?**   | Search cache is convenience, not critical. Permanent data is already in Work/Edition tables |
+| **Complexity cost**    | Two-tier adds: APICache table, sync logic, two TTL systems                                  |
+| **Benefit**            | Marginal - we'd only save re-fetching from OpenLibrary                                      |
+
+**Decision:** Use **Redis-only** caching with AOF persistence. Simpler architecture, sufficient durability.
 
 **Architecture:**
 
@@ -398,38 +404,40 @@ Key:    search:b9c8d7e6f5a4b3c2  (DIFFERENT - different params)
 │       └────────────┼────────────┘                                    │
 │                    ▼                                                 │
 │  ┌─────────────────────────────────────┐                            │
-│  │           Redis (L1 Cache)          │  ← Fast, shared, TTL-based │
+│  │        Redis (Cache Layer)          │  ← Shared, TTL-based       │
 │  │  - Search results (24h TTL)         │                            │
-│  │  - Hot data for all instances       │                            │
+│  │  - AOF persistence (survives restart)│                            │
+│  │  - LRU eviction on memory limit     │                            │
 │  └─────────────────┬───────────────────┘                            │
 │                    │                                                 │
+│                    │ (On book selection/processing)                  │
 │                    ▼                                                 │
 │  ┌─────────────────────────────────────┐                            │
-│  │      PostgreSQL (L2 Persistence)    │  ← Survives restarts       │
-│  │  - api_cache table                  │                            │
-│  │  - Works, Editions (permanent)      │                            │
+│  │    PostgreSQL (Permanent Library)   │  ← Our owned data          │
+│  │  - Works table (book metadata)      │                            │
+│  │  - Editions table (ISBN, publisher) │                            │
+│  │  - AudioBooks table (our content)   │                            │
 │  └─────────────────────────────────────┘                            │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-**Cache Flow (with Stale-While-Revalidate + Async Storage):**
+**Cache Flow:**
 
 ```mermaid
 flowchart TD
     A[Search Request] --> B[Generate Cache Key]
-    B --> C{L1: Redis Hit?}
+    B --> C{Redis Hit?}
     C -->|Yes| D{Near Expiry?}
     D -->|Yes| E[Return Stale + Background Refresh]
     D -->|No| F[Return Fresh]
-    C -->|No| G{L2: PostgreSQL Hit?}
-    G -->|Yes| H[Load from DB + Populate Redis]
-    H --> D
-    G -->|No| I[Query OpenLibrary API]
-    I --> J[Return Response Immediately]
-    J -.->|Async| K[Store in Both Tiers]
-```
+    C -->|No| G[Query OpenLibrary API]
+    G --> H[Return Response Immediately]
+    H -.->|Async| I[Store in Redis]
 
-> **Note:** Step K (Store in Both Tiers) is **async** - we return the API response immediately without waiting for cache writes to complete. This reduces latency on cache miss.
+    J[User Selects Book] --> K[Store in PostgreSQL]
+    K --> L[Work + Edition Tables]
+    L --> M[Process AudioBook]
+```
 
 ### Caching Policy (Finalized)
 
@@ -437,12 +445,11 @@ flowchart TD
 
 #### TTL Values (with ±10% Jitter)
 
-| Cache Type      | Redis TTL | PostgreSQL TTL | Jitter |
-| --------------- | --------- | -------------- | ------ |
-| Search results  | 24 hours  | 7 days         | ±10%   |
-| Work details    | 7 days    | 30 days        | ±10%   |
-| Edition details | 7 days    | 30 days        | ±10%   |
-| ISBN mappings   | 30 days   | 90 days        | ±10%   |
+| Cache Type      | Redis TTL | Jitter |
+| --------------- | --------- | ------ |
+| Search results  | 24 hours  | ±10%   |
+| Work details    | 7 days    | ±10%   |
+| Edition details | 7 days    | ±10%   |
 
 **TTL Jitter:** Prevents cache stampede (all keys expiring simultaneously).
 
@@ -464,71 +471,49 @@ When cache entry is near expiry (< 20% TTL remaining):
 ```python
 REVALIDATE_THRESHOLD = 0.2  # 20% of TTL remaining
 
-async def get_with_stale_revalidate(cache_key: str) -> tuple[dict, bool]:
+async def get_with_stale_revalidate(cache_key: str) -> tuple[dict | None, bool]:
     """
     Returns (data, is_stale).
     If stale, caller should trigger background refresh.
     """
-    cached = await cache.get(cache_key)
-    if not cached:
+    result, ttl = await redis.get_with_ttl(cache_key)
+    if not result:
         return None, False
 
-    remaining_ttl_ratio = cached.remaining_ttl / cached.original_ttl
-    is_near_expiry = remaining_ttl_ratio < REVALIDATE_THRESHOLD
-
-    return cached.data, is_near_expiry
+    needs_revalidation = ttl < (original_ttl * REVALIDATE_THRESHOLD)
+    return json.loads(result), needs_revalidation
 ```
 
 #### Invalidation Policy
 
-| Trigger               | Action              | Scope                               |
-| --------------------- | ------------------- | ----------------------------------- |
-| **TTL expiry**        | Auto-delete         | Single entry                        |
-| **User refresh book** | Manual delete       | Work + related searches (see below) |
-| **Book processed**    | Invalidate searches | Searches containing this work       |
-| **Memory pressure**   | LRU eviction        | Least recently accessed             |
+| Trigger               | Action              | Scope                         |
+| --------------------- | ------------------- | ----------------------------- |
+| **TTL expiry**        | Auto-delete         | Single entry                  |
+| **User refresh book** | Manual delete       | Work + related search pattern |
+| **Book processed**    | Invalidate searches | `search:*` pattern            |
+| **Memory pressure**   | LRU eviction        | Least recently accessed       |
 
-**Invalidation Scope on Book Refresh:**
-
-When a book is refreshed (e.g., audiobook generated), invalidate related search results so users see the updated library status.
-
-```python
-async def invalidate_book_and_related(work_key: str) -> None:
-    """
-    Invalidate a book and all search results that might contain it.
-    Called after audiobook is processed or user requests refresh.
-    """
-    # 1. Invalidate work cache
-    await cache.delete(f"work:{work_key}")
-
-    # 2. Find and invalidate related search caches
-    # Option A: Delete by pattern (Redis SCAN)
-    await cache.delete_pattern(f"search:*")  # Nuclear option
-
-    # Option B: Track relationships (more precise)
-    related_searches = await db.query(SearchWorkMapping).filter_by(
-        work_key=work_key
-    ).all()
-    for search in related_searches:
-        await cache.delete(search.cache_key)
-```
-
-**Recommendation:** Start with Option A (delete all searches) - simpler. Optimize to Option B if search cache invalidation becomes a bottleneck.
-
-#### Redis Memory Policy
+#### Redis Configuration
 
 ```redis
+# Persistence: AOF for durability
+appendonly yes
+appendfsync everysec          # Sync every second (max 1 sec data loss)
+auto-aof-rewrite-percentage 100
+auto-aof-rewrite-min-size 64mb
+
+# Memory management
 maxmemory 256mb
-maxmemory-policy allkeys-lru
+maxmemory-policy allkeys-lru   # Evict least-recently-used when full
 ```
 
 When Redis hits memory limit, evict least-recently-used keys first.
 
-### CacheService Implementation
+### CacheService Implementation (Redis-Only)
 
 ```python
 class CacheService:
-    """Two-tier caching with Redis (L1) and PostgreSQL (L2)."""
+    """Redis-only caching with TTL and stale-while-revalidate."""
 
     REVALIDATE_THRESHOLD = 0.2  # Trigger refresh at 20% TTL remaining
 
@@ -537,101 +522,58 @@ class CacheService:
         Get from cache. Returns (data, needs_revalidation).
         If needs_revalidation=True, caller should refresh in background.
         """
-        # L1: Check Redis first
-        result, ttl = await self.redis.get_with_ttl(cache_key)
-        if result:
-            original_ttl = await self._get_original_ttl(cache_key)
-            needs_revalidation = (ttl / original_ttl) < self.REVALIDATE_THRESHOLD
-            return json.loads(result), needs_revalidation
+        result = await self.redis.get(cache_key)
+        if not result:
+            return None, False
 
-        # L2: Check PostgreSQL
-        db_cache = await self.db.query(APICache).filter_by(
-            cache_key=cache_key
-        ).filter(APICache.expires_at > datetime.utcnow()).first()
+        ttl = await self.redis.ttl(cache_key)
+        original_ttl = self._get_original_ttl(cache_key)  # From key prefix
+        needs_revalidation = (ttl / original_ttl) < self.REVALIDATE_THRESHOLD
 
-        if db_cache:
-            remaining_ttl = (db_cache.expires_at - datetime.utcnow()).total_seconds()
-            jittered_ttl = self._calculate_ttl_with_jitter(int(remaining_ttl))
+        return json.loads(result), needs_revalidation
 
-            # Repopulate Redis from DB
-            await self.redis.setex(cache_key, jittered_ttl, json.dumps(db_cache.response_json))
-
-            original_ttl = self._get_base_ttl_for_key(cache_key)
-            needs_revalidation = (remaining_ttl / original_ttl) < self.REVALIDATE_THRESHOLD
-
-            db_cache.hit_count += 1
-            await self.db.commit()
-
-            return db_cache.response_json, needs_revalidation
-
-        return None, False
-
-    async def set(self, cache_key: str, data: dict, base_ttl_seconds: int) -> None:
-        """Store in both tiers with jittered TTL."""
-        jittered_ttl = self._calculate_ttl_with_jitter(base_ttl_seconds)
-        expires_at = datetime.utcnow() + timedelta(seconds=jittered_ttl)
-
-        # L1: Store in Redis
-        await self.redis.setex(cache_key, jittered_ttl, json.dumps(data))
-
-        # L2: Store in PostgreSQL
-        await self.db.merge(APICache(
-            cache_key=cache_key,
-            response_json=data,
-            expires_at=expires_at,
-            original_ttl=base_ttl_seconds,
-            hit_count=0
-        ))
-        await self.db.commit()
+    async def set(
+        self,
+        cache_key: str,
+        data: dict,
+        base_ttl: int
+    ) -> None:
+        """Store in Redis with jittered TTL."""
+        ttl = self._jitter_ttl(base_ttl)
+        await self.redis.setex(cache_key, ttl, json.dumps(data))
 
     async def invalidate(self, cache_key: str) -> None:
-        """Remove from both tiers."""
+        """Delete a specific cache key."""
         await self.redis.delete(cache_key)
-        await self.db.query(APICache).filter_by(cache_key=cache_key).delete()
-        await self.db.commit()
 
     async def invalidate_pattern(self, pattern: str) -> None:
-        """Remove all keys matching pattern from both tiers."""
-        # Redis: SCAN and delete
+        """Delete all keys matching pattern (e.g., 'search:*')."""
         async for key in self.redis.scan_iter(match=pattern):
             await self.redis.delete(key)
 
-        # PostgreSQL: LIKE query
-        await self.db.query(APICache).filter(
-            APICache.cache_key.like(pattern.replace("*", "%"))
-        ).delete()
-        await self.db.commit()
-
-    def _calculate_ttl_with_jitter(self, base_ttl: int) -> int:
-        """Add ±10% random jitter to prevent stampede."""
+    def _jitter_ttl(self, base_ttl: int) -> int:
+        """Add ±10% jitter to prevent stampede."""
         jitter = random.uniform(-0.1, 0.1)
         return int(base_ttl * (1 + jitter))
-```
 
-### PostgreSQL APICache Model (Enhanced)
-
-```python
-class APICache(UUIDPrimaryKeyMixin, TimestampMixin, Base):
-    """L2 cache - survives server restarts, backs Redis."""
-    __tablename__ = "api_cache"
-
-    cache_key: Mapped[str] = mapped_column(unique=True, index=True)
-    source: Mapped[str] = "openlibrary"  # For multi-API support
-    response_json: Mapped[dict]
-    total_results: Mapped[int]
-    expires_at: Mapped[datetime] = mapped_column(index=True)
-    original_ttl: Mapped[int]  # Base TTL for revalidation calculation
-    hit_count: Mapped[int] = 0
+    def _get_original_ttl(self, cache_key: str) -> int:
+        """Get original TTL based on key prefix."""
+        if cache_key.startswith("search:"):
+            return 86400  # 24 hours
+        elif cache_key.startswith("work:") or cache_key.startswith("edition:"):
+            return 604800  # 7 days
+        return 86400  # Default 24 hours
 ```
 
 **Key Points:**
 
-1. **Redis (L1):** Fast reads, shared across instances, TTL auto-expiry with jitter
-2. **PostgreSQL (L2):** Persistent, survives restarts, repopulates Redis
-3. **Stale-While-Revalidate:** Return stale data fast, refresh in background
-4. **TTL Jitter:** ±10% prevents cache stampede
-5. **Invalidation Scope:** Book refresh invalidates related search caches
-6. **No Cache Warming:** Lazy population on first request
+1. **Redis only:** Simple, fast, shared across all instances
+2. **AOF persistence:** Survives restarts (max 1 second data loss with `appendfsync everysec`)
+3. **LRU eviction:** Automatically evicts old keys when memory limit reached
+4. **Stale-While-Revalidate:** Return stale data fast, refresh in background
+5. **TTL Jitter:** ±10% prevents cache stampede
+6. **Invalidation:** Pattern-based deletion for search caches
+7. **No PostgreSQL cache table:** Library data (Work/Edition) is permanent, search cache is transient
 
 ---
 

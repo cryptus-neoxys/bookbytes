@@ -4,7 +4,6 @@ This module exports the Base class and all model classes.
 Models are added incrementally as each phase is implemented.
 """
 
-from bookbytes.models.api_cache import APICache
 from bookbytes.models.audio_book import AudioBook, AudioBookStatus
 from bookbytes.models.base import (
     Base,
@@ -31,7 +30,7 @@ __all__ = [
     "AudioBook",
     "AudioBookStatus",
     "Chapter",
-    "APICache",
+    # NOTE: No APICache - using Redis-only caching
     # Future phases will add:
     # Phase 3.F: Job (background processing)
     # Phase 6: User (authentication)
