@@ -1,4 +1,5 @@
 .PHONY: help dev prod build-dev build-prod down-dev down-prod \
+        start-dev-infra start-prod-infra \
         logs-dev logs-prod api-logs-dev api-logs-prod \
         db-logs-dev db-logs-prod redis-logs-dev redis-logs-prod \
         migrate shell test clean-docker-dev status
@@ -21,6 +22,8 @@ help:
 	@echo "  build-prod       - Build prod containers"
 	@echo "  down-dev         - Stop dev services"
 	@echo "  down-prod        - Stop prod services"
+	@echo "  start-dev-infra  - Start infra only (postgres, redis)"
+	@echo "  start-prod-infra - Start prod infra only"
 	@echo ""
 	@echo "Logs (composable env-component):"
 	@echo "  logs-dev         - All dev logs"
@@ -65,6 +68,13 @@ down-dev:
 
 down-prod:
 	$(DC_PROD) down
+
+# Infrastructure only (no API - for migrations, local dev)
+start-dev-infra:
+	$(DC_DEV) up -d postgres redis
+
+start-prod-infra:
+	$(DC_PROD) up -d postgres redis
 
 # Logs (composable)
 logs-dev:
