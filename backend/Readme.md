@@ -1,333 +1,231 @@
-# BookBytes 📚🎧
+# BookBytes Backend 📚🎧
 
-BookBytes is a Python application that converts non-fiction books into chapter-wise audio summaries for faster and more convenient knowledge consumption. Transform a 200-page book into 15-20 digestible 5-minute audio bites!
+> Transform lengthy non-fiction books into concise, chapter-wise audio summaries.
 
-## 🎯 Problem Statement
+## Overview
 
-- **Problem**: Long books, no time to read
-- **Solution**: Short, condensed audio bytes for simpler consumption
-- **Value**: 200-page book → 15-20 chapters → 5 mins audio bites each → 1.5-2hrs total
+BookBytes converts books into digestible 5-minute audio bytes. A 250-page book becomes 15-20 short audio chapters totaling 1.5-2 hours.
 
-## 🚀 Features
+**Tech Stack:** Python 3.13+, FastAPI, PostgreSQL, Redis, SQLAlchemy 2.0, httpx
 
-- **ISBN-based book lookup**: Enter any book's ISBN to get started
-- **Automatic chapter detection**: Uses LLM to identify book chapters
-- **AI-powered summaries**: Generates concise, informative chapter summaries
-- **Text-to-speech conversion**: Converts summaries to high-quality audio
-- **RESTful API**: Easy-to-use API for integration
-- **Database storage**: Persistent storage for books, chapters, and audio files
+## Architecture
 
-## 🛠️ Technology Stack
-
-- **Backend**: Python, Flask
-- **Database**: SQLite
-- **AI/LLM**: OpenAI GPT-3.5-turbo
-- **Text-to-Speech**: Google Text-to-Speech (gTTS)
-- **Book Data**: Open Library API
-
-## 📋 Prerequisites
-
-- Python 3.8 or higher
-- OpenAI API key
-- Internet connection (for API calls)
-
-## 🔧 Installation
-
-### Standard Installation
-
-1. **Clone the repository**:
-   ```bash
-   git clone <repository-url>
-   cd bookbytes
-   ```
-
-2. **Create a virtual environment**:
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Set up environment variables**:
-   ```bash
-   export OPENAI_API_KEY="your-openai-api-key-here"
-   ```
-   
-   Or create a `.env` file:
-   ```
-   OPENAI_API_KEY=your-openai-api-key-here
-   ```
-
-### 🐳 Docker Installation
-
-Alternatively, you can run BookBytes using Docker:
-
-1. **Clone the repository**:
-   ```bash
-   git clone <repository-url>
-   cd bookbytes
-   ```
-
-2. **Create a `.env` file with your OpenAI API key**:
-   ```bash
-   echo "OPENAI_API_KEY=your-openai-api-key-here" > .env
-   ```
-
-3. **Build and start the container**:
-   ```bash
-   docker-compose up -d
-   ```
-
-4. **Access the application at http://localhost:5000**
-
-5. **To stop the container**:
-   ```bash
-   docker-compose down
-   ```
-
-#### Data Persistence with Docker
-
-The application uses Docker volumes to persist data:
-
-- The SQLite database and audio files are stored in a Docker volume named `bookbytes-data`
-- This ensures your data is preserved even if the container is removed
-
-## 🚀 Usage
-
-### Starting the Server
-
-```bash
-python app.py
+```
+┌──────────────────────────────────────────────────────────────┐
+│                    BookBytes Library                          │
+├──────────────────────────────────────────────────────────────┤
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────────┐   │
+│  │   Works     │───▶│  Editions   │───▶│   AudioBooks    │   │
+│  │ (our data)  │    │ (ISBNs)     │    │ (our content)   │   │
+│  └──────┬──────┘    └─────────────┘    └─────────────────┘   │
+│         │                                                     │
+│         ▼                                                     │
+│  ┌─────────────┐                                             │
+│  │BookProviders│  ← Maps our IDs to provider IDs (OL, Google)│
+│  └─────────────┘                                             │
+│         │                                                     │
+│         ▼                                                     │
+│  ┌─────────────┐                                             │
+│  │  Redis Cache│  ← Raw API responses (TTL-based)            │
+│  └─────────────┘                                             │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-The server will start on `http://localhost:5000`
+### Data Model Hierarchy
 
-### API Endpoints
+```
+Work (canonical book)
+  ├── Edition (specific ISBN/format)
+  │     └── AudioBook (generated audio)
+  │           └── Chapter (individual segments)
+  └── BookProvider (external ID mappings)
+```
 
-#### 1. Process a Book
-**POST** `/api/process`
+### Book Search Flow
+
+```mermaid
+flowchart TD
+    A[User Search] --> B{Search Type?}
+
+    %% ISBN Search Path
+    B -->|By ISBN| C[Check Library DB]
+    C -->|Found| E[Return Existing Book]
+    C -->|Not Found| F1[Check Cache]
+    F1 -->|Hit| G{Latest Edition?}
+    F1 -->|Miss| F[Query OpenLibrary API]
+    F --> G
+    G -->|Yes| H[Store in Library]
+    G -->|No| I[Find Latest Edition]
+    I --> H
+
+    %% Title/Author Search Path
+    B -->|By Title/Author| D1[Check Search Cache]
+    D1 -->|Hit| K[Display Results]
+    D1 -->|Miss| D4[Query OpenLibrary API]
+    D4 --> K
+
+    %% Selection & Processing
+    K --> L[User Selects Book]
+    L --> M[Store Work + Editions]
+    M --> N[Process AudioBook]
+```
+
+## Project Structure
+
+```
+backend/
+├── src/bookbytes/
+│   ├── api/v1/           # FastAPI routers
+│   │   ├── router.py     # Main v1 router
+│   │   └── search.py     # Book search endpoints
+│   ├── core/             # Config, database, logging
+│   ├── models/           # SQLAlchemy models
+│   │   ├── work.py       # Work entity
+│   │   ├── edition.py    # Edition entity
+│   │   ├── audio_book.py # AudioBook entity
+│   │   └── book_provider.py
+│   ├── repositories/     # Database access layer
+│   ├── schemas/          # Pydantic schemas
+│   └── services/         # Business logic
+│       ├── cache.py      # Redis cache service
+│       ├── library.py    # Work/Edition persistence
+│       └── openlibrary.py # OpenLibrary API client
+├── tests/
+│   ├── unit/             # Unit tests (mocked deps)
+│   └── integration/      # Integration tests
+└── pyproject.toml
+```
+
+## Local Development Setup
+
+### Prerequisites
+
+- Python 3.13+
+- Redis (for caching)
+- PostgreSQL (or use SQLite for development)
+
+### 1. Clone and Setup
 
 ```bash
-curl -X POST http://localhost:5000/api/process \
+git clone <repository-url>
+cd bookbytes/backend
+```
+
+### 2. Install Dependencies
+
+```bash
+# Using uv (recommended)
+uv sync
+
+# Or using pip
+pip install -e ".[dev]"
+```
+
+### 3. Environment Configuration
+
+Create a `.env` file:
+
+```bash
+# Database
+DATABASE_URL=sqlite+aiosqlite:///./bookbytes.db
+# For PostgreSQL:
+# DATABASE_URL=postgresql+asyncpg://user:pass@localhost/bookbytes
+
+# Redis
+REDIS_URL=redis://localhost:6379/0
+
+# API Keys
+OPENAI_API_KEY=sk-...
+
+# App Config
+APP_ENV=development
+DEBUG=true
+LOG_LEVEL=DEBUG
+LOG_FORMAT=console
+```
+
+### 4. Start Redis
+
+```bash
+# Using Docker
+docker run -d -p 6379:6379 redis:alpine
+
+# Or install locally
+brew install redis && redis-server
+```
+
+### 5. Run the Server
+
+```bash
+# Development server with auto-reload
+uv run uvicorn bookbytes.main:app --reload --port 8000
+
+# Or using make
+make dev
+```
+
+### 6. Run Tests
+
+```bash
+# All unit tests
+make test
+
+# Integration tests (requires Redis)
+make test-integration
+
+# Coverage report
+make test-cov
+```
+
+## API Endpoints
+
+| Method | Endpoint                         | Description                  |
+| ------ | -------------------------------- | ---------------------------- |
+| `POST` | `/api/v1/books/search`           | Search books by title/author |
+| `GET`  | `/api/v1/books/works/{work_key}` | Get work details             |
+| `GET`  | `/api/v1/books/isbn/{isbn}`      | Lookup by ISBN               |
+| `GET`  | `/health/live`                   | Liveness probe               |
+| `GET`  | `/health/ready`                  | Readiness probe              |
+
+### Example: Search Books
+
+```bash
+curl -X POST http://localhost:8000/api/v1/books/search \
   -H "Content-Type: application/json" \
-  -d '{"isbn": "9780307887894"}'
+  -d '{"title": "Atomic Habits"}'
 ```
 
-**Response**:
-```json
-{
-  "success": true,
-  "message": "Successfully processed 12 out of 12 chapters",
-  "book": {
-    "isbn": "9780307887894",
-    "title": "The Power of Habit",
-    "author": "Charles Duhigg"
-  },
-  "chapters_processed": 12
-}
-```
+## Testing Strategy
 
-#### 2. List All Books
-**GET** `/api/books`
+| Layer       | Location                                       | Coverage                             |
+| ----------- | ---------------------------------------------- | ------------------------------------ |
+| Unit        | `tests/unit/`                                  | Services, endpoints with mocked deps |
+| Integration | `tests/integration/`                           | API + database + mocked externals    |
+| External    | `tests/integration/` (`@pytest.mark.external`) | Real API calls                       |
+
+Run with markers:
 
 ```bash
-curl http://localhost:5000/api/books
+# Skip external API tests (for CI)
+pytest -m "not external"
+
+# Only run external tests
+pytest -m external
 ```
 
-**Response**:
-```json
-{
-  "books": [
-    {
-      "isbn": "9780307887894",
-      "title": "The Power of Habit",
-      "author": "Charles Duhigg",
-      "pages": 371,
-      "publish_date": "2012",
-      "chapter_count": 12
-    }
-  ]
-}
-```
+## Configuration
 
-#### 3. Get Book Chapters
-**GET** `/api/books/{isbn}/chapters`
+All settings via environment variables or `.env`:
 
-```bash
-curl http://localhost:5000/api/books/9780307887894/chapters
-```
+| Variable         | Default       | Description          |
+| ---------------- | ------------- | -------------------- |
+| `APP_ENV`        | `development` | Environment mode     |
+| `DATABASE_URL`   | Required      | SQLAlchemy async URL |
+| `REDIS_URL`      | Required      | Redis connection URL |
+| `OPENAI_API_KEY` | Required      | OpenAI API key       |
+| `LOG_LEVEL`      | `INFO`        | Logging level        |
+| `LOG_FORMAT`     | `json`        | `json` or `console`  |
 
-**Response**:
-```json
-{
-  "chapters": [
-    {
-      "chapter_number": 1,
-      "title": "The Habit Loop",
-      "summary": "This chapter introduces the concept of the habit loop...",
-      "audio_file_path": "audio/9780307887894_chapter_01.mp3",
-      "word_count": 142
-    }
-  ]
-}
-```
+## License
 
-#### 4. Get Chapter Audio
-**GET** `/api/audio/{isbn}/{chapter_number}`
-
-```bash
-curl http://localhost:5000/api/audio/9780307887894/1 --output chapter1.mp3
-```
-
-#### 5. Health Check
-**GET** `/health`
-
-```bash
-curl http://localhost:5000/health
-```
-
-## 📁 Project Structure
-
-```
-bookbytes/
-├── app.py                 # Main application file
-├── requirements.txt       # Python dependencies
-├── README.md             # This file
-├── .env                  # Environment variables (create this)
-├── bookbytes.db          # SQLite database (auto-created)
-├── audio/                # Generated audio files (auto-created)
-│   ├── {isbn}_chapter_01.mp3
-│   ├── {isbn}_chapter_02.mp3
-│   └── ...
-├── knowledge/
-│   └── docs.md           # Project documentation
-└── samples/              # Sample audio files
-    └── ...
-```
-
-## 🔄 Processing Flow
-
-1. **User Input**: Provide book ISBN
-2. **Book Lookup**: Fetch book details from Open Library API
-3. **Chapter Detection**: Use LLM to identify book chapters
-4. **Summary Generation**: Generate concise summaries for each chapter
-5. **Audio Conversion**: Convert text summaries to audio using TTS
-6. **Storage**: Save book, chapters, and audio files to database
-7. **API Access**: Serve content through RESTful API
-
-## 🎵 Audio Quality
-
-- **Format**: MP3
-- **Quality**: Standard quality suitable for speech
-- **Duration**: Typically 3-7 minutes per chapter
-- **Language**: English (configurable)
-
-## 🔒 Legal Considerations
-
-- **Fair Use**: Generates transformative summaries for educational purposes
-- **Copyright Compliance**: Does not reproduce substantial portions of original works
-- **Educational Purpose**: Designed for knowledge consumption and learning
-
-## 🚧 Limitations
-
-- **LLM Knowledge**: Limited to books in the training data
-- **Chapter Detection**: May not work for all books
-- **Summary Quality**: Depends on LLM's knowledge of the specific book
-- **API Costs**: OpenAI API usage incurs costs
-
-## 🔮 Future Enhancements (v0.1.0+)
-
-- Chapter-wise audio storage with metadata
-- Timestamp tracking for audio navigation
-- Support for book titles instead of ISBN
-- Multiple TTS voice options
-- Batch processing capabilities
-- Web interface for easier interaction
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-1. **"OpenAI API key not configured"**
-   - Ensure `OPENAI_API_KEY` environment variable is set
-   - Check that the API key is valid and has sufficient credits
-
-2. **"Book not found for ISBN"**
-   - Verify the ISBN is correct (10 or 13 digits)
-   - Try removing hyphens from the ISBN
-   - Check if the book exists in Open Library
-
-3. **"Could not retrieve chapters"**
-   - The book might not be in the LLM's training data
-   - Try a more popular or well-known book
-
-4. **Audio generation fails**
-   - Check internet connection (gTTS requires internet)
-   - Ensure the `audio/` directory is writable
-
-### Docker-Specific Issues
-
-1. **Container fails to start**
-   - Check if the required ports are already in use
-   - Verify that the `.env` file exists with a valid OpenAI API key
-
-2. **Data persistence issues**
-   - Ensure the Docker volume is properly created: `docker volume ls`
-   - Check container logs for permission issues: `docker-compose logs`
-
-3. **Performance issues**
-   - Adjust container resources in docker-compose.yml if needed
-   - For production, consider setting `FLASK_DEBUG=0`
-
-### Debug Mode
-
-Run the application in debug mode for more detailed logs:
-
-```bash
-FLASK_DEBUG=1 python app.py
-```
-
-For Docker:
-
-```bash
-# View logs
-docker-compose logs -f
-
-# Restart with debug mode
-docker-compose down
-FLASK_DEBUG=1 docker-compose up -d
-```
-
-## 📊 Example Books to Try
-
-- **The Power of Habit** - ISBN: 9780307887894
-- **Atomic Habits** - ISBN: 9780735211292
-- **Thinking, Fast and Slow** - ISBN: 9780374533557
-- **The 7 Habits of Highly Effective People** - ISBN: 9780743269513
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
-
-## 📄 License
-
-Not licenced yet.
-
-## 🙏 Acknowledgments
-
-- Open Library for book metadata
-- OpenAI for LLM capabilities
-- Google for Text-to-Speech services
-- Flask community for the web framework
-
----
-
-**Happy Learning! 🎓📚**
+Not licensed yet.
