@@ -230,35 +230,35 @@ default=uuid7
 
 ### Phase 3.D: Library Service
 
-- [ ] 3.D.1 Create `services/library.py` with `LibraryService` class
+- [x] 3.D.1 Create `services/library.py` with `LibraryService` class
 
   - Inject: WorkRepository, EditionRepository, BookProviderRepository
 
-- [ ] 3.D.2 Implement `find_work_by_provider()`
+- [x] 3.D.2 Implement `find_work_by_provider()`
 
   - Query BookProvider by (provider, external_key)
   - Return associated Work
 
-- [ ] 3.D.3 Implement `get_or_create_work()`
+- [x] 3.D.3 Implement `get_or_create_work()`
 
   - Check if work exists via provider lookup
   - Create new Work if not found
   - Link to provider
 
-- [ ] 3.D.4 Implement `link_to_provider()`
+- [x] 3.D.4 Implement `link_to_provider()`
 
   - Create BookProvider mapping for Work or Edition
 
-- [ ] 3.D.5 Implement `find_by_isbn()`
+- [x] 3.D.5 Implement `find_by_isbn()`
 
   - Query Edition by normalized ISBN
 
-- [ ] 3.D.6 Implement `find_latest_edition()`
+- [x] 3.D.6 Implement `find_latest_edition()`
 
   - Order by publish_year descending
   - Filter by language
 
-- [ ] 3.D.7 Implement `store_editions()`
+- [x] 3.D.7 Implement `store_editions()`
 
   - Bulk insert editions for a work
   - Create BookProvider mappings
