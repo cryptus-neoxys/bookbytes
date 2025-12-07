@@ -129,6 +129,11 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short"
+markers = [
+    "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
+    "external: marks tests that hit external APIs (may be slow/flaky)",
+    "slow: marks tests as slow-running",
+]
 filterwarnings = [
     "ignore::DeprecationWarning",
 ]

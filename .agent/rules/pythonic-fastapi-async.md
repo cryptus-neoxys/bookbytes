@@ -1,6 +1,7 @@
 ---
-trigger: model_decision
+trigger: glob
 description: Rules for working with Python and FastAPI backend development.
+globs: *.py
 ---
 
 You are an expert in Python, FastAPI, and scalable API development.
