@@ -188,6 +188,23 @@ class Settings(BaseSettings):
         description="OpenAI API request timeout in seconds",
     )
 
+    # OpenLibrary API
+    openlibrary_base_url: str = Field(
+        default="https://openlibrary.org",
+        description="OpenLibrary API base URL",
+    )
+    openlibrary_timeout: int = Field(
+        default=30,
+        ge=1,
+        description="OpenLibrary API request timeout in seconds",
+    )
+    openlibrary_page_size: int = Field(
+        default=100,
+        ge=1,
+        le=1000,
+        description="Number of results per OpenLibrary search request",
+    )
+
     # ========================================
     # Authentication
     # ========================================

@@ -8,6 +8,15 @@ This service provides a simple, effective caching layer using Redis with:
 Redis is configured with AOF persistence (appendfsync everysec) for durability.
 Search results are transient - if lost, users simply re-search. Important data
 (processed books) is stored permanently in PostgreSQL Work/Edition tables.
+
+Cache Key Types:
+    - search:{hash} - Search results (24h TTL)
+    - isbn:{isbn} - Book details by ISBN (7d TTL)
+    - work:{identifier} - Work details (7d TTL)
+
+Note: Using canonical data model approach - cache internal representations,
+not raw API responses. Provider metadata stored in cached value, not key.
+See: tasks/knowledge/multi-provider-integration-patterns.md
 """
 
 import hashlib
@@ -30,12 +39,21 @@ class CacheService:
         - appendfsync everysec
         - maxmemory 256mb
         - maxmemory-policy allkeys-lru
+
+    Usage with FastAPI:
+        ```python
+        from bookbytes.services.cache import CacheService, get_cache_service
+
+        @router.get("/search")
+        async def search(cache: CacheService = Depends(get_cache_service)):
+            ...
+        ```
     """
 
     # TTL constants (in seconds)
     TTL_SEARCH_RESULTS = 86400  # 24 hours
     TTL_WORK_DETAILS = 604800  # 7 days
-    TTL_EDITION_DETAILS = 604800  # 7 days
+    TTL_ISBN_DETAILS = 604800  # 7 days
 
     # Stale-while-revalidate threshold
     REVALIDATE_THRESHOLD = 0.2  # Trigger refresh at 20% TTL remaining
@@ -74,7 +92,7 @@ class CacheService:
             return data, needs_revalidation
 
         except Exception as e:
-            logger.warning("Cache get failed", cache_key=cache_key, error=str(e))
+            logger.warning("cache_get_failed", cache_key=cache_key, error=str(e))
             return None, False
 
     async def set(
@@ -96,10 +114,10 @@ class CacheService:
 
             ttl = self._jitter_ttl(base_ttl)
             await self.redis.setex(cache_key, ttl, json.dumps(data))
-            logger.debug("Cache set", cache_key=cache_key, ttl=ttl)
+            logger.debug("cache_set", cache_key=cache_key, ttl=ttl)
 
         except Exception as e:
-            logger.warning("Cache set failed", cache_key=cache_key, error=str(e))
+            logger.warning("cache_set_failed", cache_key=cache_key, error=str(e))
 
     async def invalidate(self, cache_key: str) -> None:
         """Delete a specific cache key.
@@ -109,9 +127,9 @@ class CacheService:
         """
         try:
             await self.redis.delete(cache_key)
-            logger.debug("Cache invalidated", cache_key=cache_key)
+            logger.debug("cache_invalidated", cache_key=cache_key)
         except Exception as e:
-            logger.warning("Cache invalidate failed", cache_key=cache_key, error=str(e))
+            logger.warning("cache_invalidate_failed", cache_key=cache_key, error=str(e))
 
     async def invalidate_pattern(self, pattern: str) -> int:
         """Delete all keys matching pattern.
@@ -127,11 +145,11 @@ class CacheService:
             async for key in self.redis.scan_iter(match=pattern):
                 await self.redis.delete(key)
                 count += 1
-            logger.debug("Cache pattern invalidated", pattern=pattern, count=count)
+            logger.debug("cache_pattern_invalidated", pattern=pattern, count=count)
             return count
         except Exception as e:
             logger.warning(
-                "Cache pattern invalidate failed", pattern=pattern, error=str(e)
+                "cache_pattern_invalidate_failed", pattern=pattern, error=str(e)
             )
             return 0
 
@@ -156,16 +174,21 @@ class CacheService:
         Returns:
             Original TTL in seconds
         """
-        if cache_key.startswith("search:"):
-            return self.TTL_SEARCH_RESULTS
-        elif cache_key.startswith("work:"):
-            return self.TTL_WORK_DETAILS
-        elif cache_key.startswith("edition:"):
-            return self.TTL_EDITION_DETAILS
-        return self.TTL_SEARCH_RESULTS  # Default
+        ttl_map = {
+            "search": self.TTL_SEARCH_RESULTS,
+            "work": self.TTL_WORK_DETAILS,
+            "isbn": self.TTL_ISBN_DETAILS,
+        }
+
+        prefix = cache_key.split(":", 1)[0] if ":" in cache_key else cache_key
+        return ttl_map.get(prefix, self.TTL_SEARCH_RESULTS)
+
+    # -------------------------------------------------------------------------
+    # Cache Key Generators
+    # -------------------------------------------------------------------------
 
     @staticmethod
-    def generate_search_key(
+    def search_key(
         *,
         title: str,
         author: str | None = None,
@@ -206,25 +229,61 @@ class CacheService:
         return f"search:{hash_digest}"
 
     @staticmethod
-    def work_key(work_id: str) -> str:
-        """Generate cache key for a work.
+    def isbn_key(isbn: str) -> str:
+        """Generate cache key for ISBN-based lookup.
 
         Args:
-            work_id: Work ID (UUID or external key)
+            isbn: ISBN (10 or 13 digits)
 
         Returns:
-            Cache key
+            Cache key (e.g., "isbn:9780618640157")
         """
-        return f"work:{work_id}"
+        return f"isbn:{isbn}"
 
     @staticmethod
-    def edition_key(edition_id: str) -> str:
-        """Generate cache key for an edition.
+    def work_key(identifier: str) -> str:
+        """Generate cache key for work details.
 
         Args:
-            edition_id: Edition ID (UUID or ISBN)
+            identifier: Work identifier (ISBN or internal ID)
 
         Returns:
-            Cache key
+            Cache key (e.g., "work:9780618640157")
         """
-        return f"edition:{edition_id}"
+        return f"work:{identifier}"
+
+
+# Global Redis client (set during app startup)
+_redis_client: Redis | None = None
+
+
+def set_redis_client(redis: Redis) -> None:
+    """Set the global Redis client during app startup.
+
+    Call this in your FastAPI lifespan:
+        ```python
+        @asynccontextmanager
+        async def lifespan(app: FastAPI):
+            redis = Redis.from_url(settings.redis_url)
+            set_redis_client(redis)
+            yield
+            await redis.close()
+        ```
+    """
+    global _redis_client
+    _redis_client = redis
+
+
+def get_cache_service() -> CacheService:
+    """FastAPI dependency for CacheService.
+
+    Usage:
+        ```python
+        @router.get("/search")
+        async def search(cache: CacheService = Depends(get_cache_service)):
+            data, stale = await cache.get("search:abc123")
+        ```
+    """
+    if _redis_client is None:
+        raise RuntimeError("Redis client not initialized. Call set_redis_client first.")
+    return CacheService(_redis_client)

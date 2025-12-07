@@ -199,31 +199,31 @@ default=uuid7
 
 ### Phase 3.C: OpenLibrary Service
 
-- [ ] 3.C.1 Create `services/openlibrary.py` with `OpenLibraryService` class
+- [x] 3.C.1 Create `services/openlibrary.py` with `OpenLibraryService` class
 
   - BASE_URL, PAGE_SIZE=100
   - Use httpx async client
 
-- [ ] 3.C.2 Add User-Agent header
+- [x] 3.C.2 Add User-Agent header
 
   - Include app name and contact for API compliance
 
-- [ ] 3.C.3 Implement `search_books()` method
+- [x] 3.C.3 Implement `search_books()` method
 
   - Accept title, author, publisher, language
   - Check cache first (via CacheService)
   - Query API on miss, cache result async
 
-- [ ] 3.C.4 Implement `get_work_details()` method
+- [x] 3.C.4 Implement `get_work_details()` method
 
   - Fetch work by OpenLibrary key
   - Cache with 7-day TTL
 
-- [ ] 3.C.5 Implement `get_all_isbns_for_work()` method
+- [x] 3.C.5 Implement `get_all_isbns_for_work()` method
 
   - Collect ISBNs from all editions
 
-- [ ] 3.C.6 Map API responses to provider-agnostic schemas
+- [x] 3.C.6 Map API responses to provider-agnostic schemas
   - Create DTOs for search results, work details
 
 ---
@@ -259,6 +259,7 @@ default=uuid7
   - Filter by language
 
 - [ ] 3.D.7 Implement `store_editions()`
+
   - Bulk insert editions for a work
   - Create BookProvider mappings
 
