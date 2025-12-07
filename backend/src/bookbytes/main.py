@@ -335,9 +335,10 @@ def configure_routes(app: FastAPI) -> None:
             "health": "/health/live",
         }
 
-    # TODO: Include API v1 router in Phase 4
-    # from bookbytes.api.v1.router import router as v1_router
-    # app.include_router(v1_router, prefix="/api/v1")
+    # Include API v1 router
+    from bookbytes.api.v1.router import router as v1_router
+
+    app.include_router(v1_router, prefix="/api/v1")
 
 
 # Create the application instance

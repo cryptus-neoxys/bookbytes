@@ -267,18 +267,18 @@ default=uuid7
 
 ### Phase 3.E: API Endpoints
 
-- [ ] 3.E.1 Create `api/v1/search.py` with router
+- [x] 3.E.1 Create `api/v1/search.py` with router
 
-- [ ] 3.E.2 Create `POST /books/search` endpoint
+- [x] 3.E.2 Create `POST /books/search` endpoint
 
   - Accept BookSearchRequest (title, author?, publisher?, language?)
   - Return paginated results with page, page_size params
 
-- [ ] 3.E.3 Create `GET /books/works/{work_id}` endpoint
+- [x] 3.E.3 Create `GET /books/works/{work_id}` endpoint
 
   - Return work details with all editions
 
-- [ ] 3.E.4 Create `GET /books/isbn/{isbn}` endpoint
+- [x] 3.E.4 Create `GET /books/isbn/{isbn}` endpoint
 
   - Check library first, query API if not found
   - Store in library on fetch
@@ -294,11 +294,11 @@ default=uuid7
   - Regenerate audiobook for new edition
   - Invalidate related caches
 
-- [ ] 3.E.7 Create schemas in `schemas/search.py`
+- [x] 3.E.7 Create schemas in `schemas/search.py`
 
   - BookSearchRequest, BookSearchResponse, WorkResponse, EditionResponse
 
-- [ ] 3.E.8 Include search router in v1 router
+- [x] 3.E.8 Include search router in v1 router
 
 ---
 
