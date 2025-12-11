@@ -106,19 +106,22 @@
 
 ### Phase 2: Job Infrastructure
 
-- [ ] 2.1 Create `models/job.py`
-  - [ ] `JobStatus` enum (pending, processing, completed, failed)
-  - [ ] `JobType` enum (audiobook_generation, audiobook_refresh)
-  - [ ] `Job` model with FK to AudioBook, progress tracking
+- [x] 2.1 Create `models/job.py`
+  - [x] `JobStatus` enum (pending, processing, completed, failed)
+  - [x] `JobType` enum (audiobook_generation, audiobook_refresh)
+  - [x] `Job` model - **GENERIC** (no FK to AudioBook)
+  - [x] `models/audio_book_job.py` - Relation table for job↔audiobook link
 
-- [ ] 2.2 Generate Alembic migration
-  - [ ] Run `alembic revision --autogenerate -m "add_jobs_table"`
-  - [ ] Verify migration looks correct
-  - [ ] Run migration
+- [x] 2.2 Generate Alembic migration
+  - [x] Run `alembic revision --autogenerate -m "add_jobs_and_audio_book_jobs_tables"`
+  - [x] Verified migration creates both tables with indexes
+  - [x] Run migration `alembic upgrade head`
 
-- [ ] 2.3 Create `repositories/job.py`
-  - [ ] `JobRepository` with status-based queries
-  - [ ] `get_by_status()`, `get_pending()`, `update_progress()`
+- [x] 2.3 Create `repositories/job.py`
+  - [x] `JobRepository` with `claim_next()` (optimistic locking)
+  - [x] `update_progress()`, `mark_completed()`, `mark_failed()`
+  - [x] `schedule_retry()`, `get_by_status()`, `get_pending_count()`
+  - [x] `AudioBookJobRepository` for managing job↔audiobook links
 
 - [ ] 2.4 Configure ARQ worker
   - [ ] Create `workers/settings.py` with `WorkerSettings`
