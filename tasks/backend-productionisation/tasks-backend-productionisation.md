@@ -154,7 +154,7 @@ Update the file after completing each sub-task, not just after completing an ent
   This phase has been moved to a dedicated module. Key components:
 
   - 3.A: Data Models (Work, Edition, BookProvider, AudioBook, Chapter, APICache)
-  - 3.B: Cache Service (Two-tier: Redis + PostgreSQL)
+  - 3.B: Cache Service (Redis)
   - 3.C: OpenLibrary Service (API client with caching)
   - 3.D: Library Service (Provider-agnostic book management)
   - 3.E: API Endpoints (Search, process, refresh)
