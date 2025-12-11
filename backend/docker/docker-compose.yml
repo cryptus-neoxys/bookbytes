@@ -1,0 +1,148 @@
+# =============================================================================
+# BookBytes Development Stack
+# =============================================================================
+# Services:
+#   - api: FastAPI application server
+#   - worker: ARQ background job worker (placeholder)
+#   - postgres: PostgreSQL 16 database
+#   - redis: Redis 7 for job queue and caching
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # API Service
+  # ---------------------------------------------------------------------------
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    command: uvicorn bookbytes.main:app --host 0.0.0.0 --port 8000 --reload
+    ports:
+      - "${API_PORT:-8000}:8000"
+    environment:
+      # Application
+      - APP_ENV=${APP_ENV:-development}
+      - DEBUG=${DEBUG:-true}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_FORMAT=${LOG_FORMAT:-console}
+      # Database
+      - DATABASE_URL=postgresql+asyncpg://bookbytes:bookbytes@postgres:5432/bookbytes
+      - DATABASE_POOL_MIN=2
+      - DATABASE_POOL_MAX=10
+      # Redis
+      - REDIS_URL=redis://redis:6379/0
+      # Storage
+      - STORAGE_BACKEND=${STORAGE_BACKEND:-local}
+      - LOCAL_STORAGE_PATH=/app/data/audio
+      # Auth
+      - AUTH_MODE=${AUTH_MODE:-api_key}
+      - API_KEY=${API_KEY:-dev-api-key-12345}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-dev-secret-key-change-in-production}
+      - JWT_EXPIRE_MINUTES=${JWT_EXPIRE_MINUTES:-30}
+      # OpenAI (required for book processing)
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
+    volumes:
+      # Mount source for hot reload in development
+      - ../src:/app/src:ro
+      # Persist audio files
+      - audio-data:/app/data/audio
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Worker Service (ARQ Background Jobs)
+  # ---------------------------------------------------------------------------
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    # Placeholder command - will be enabled in Phase 3
+    command: echo "Worker placeholder - enable in Phase 3 with 'arq bookbytes.workers.settings.WorkerSettings'"
+    environment:
+      # Application
+      - APP_ENV=${APP_ENV:-development}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_FORMAT=${LOG_FORMAT:-console}
+      # Database
+      - DATABASE_URL=postgresql+asyncpg://bookbytes:bookbytes@postgres:5432/bookbytes
+      # Redis
+      - REDIS_URL=redis://redis:6379/0
+      # Storage
+      - STORAGE_BACKEND=${STORAGE_BACKEND:-local}
+      - LOCAL_STORAGE_PATH=/app/data/audio
+      # OpenAI
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
+      # Worker
+      - WORKER_MAX_JOBS=${WORKER_MAX_JOBS:-5}
+    volumes:
+      # Persist audio files (shared with api)
+      - audio-data:/app/data/audio
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    profiles:
+      - worker # Only start with --profile worker
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL Database
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=bookbytes
+      - POSTGRES_PASSWORD=bookbytes
+      - POSTGRES_DB=bookbytes
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bookbytes -d bookbytes"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Redis Cache & Job Queue
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  postgres-data:
+    name: bookbytes_postgres_data
+  redis-data:
+    name: bookbytes_redis_data
+  audio-data:
+    name: bookbytes_audio_data

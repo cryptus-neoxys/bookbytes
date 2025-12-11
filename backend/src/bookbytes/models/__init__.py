@@ -1,0 +1,43 @@
+"""Models package for BookBytes.
+
+This module exports the Base class and all model classes.
+Models are added incrementally as each phase is implemented.
+"""
+
+from bookbytes.models.audio_book import AudioBook, AudioBookStatus
+from bookbytes.models.audio_book_job import AudioBookJob
+from bookbytes.models.base import (
+    Base,
+    SoftDeleteMixin,
+    TimestampMixin,
+    UUIDPrimaryKeyMixin,
+)
+from bookbytes.models.book_provider import BookProvider, BookProviderType
+from bookbytes.models.chapter import Chapter
+from bookbytes.models.edition import Edition
+from bookbytes.models.job import Job, JobStatus, JobType
+from bookbytes.models.work import Work
+
+__all__ = [
+    # Base and Mixins
+    "Base",
+    "UUIDPrimaryKeyMixin",
+    "TimestampMixin",
+    "SoftDeleteMixin",
+    # Phase 3: Audio Books Library
+    "Work",
+    "Edition",
+    "BookProvider",
+    "BookProviderType",
+    "AudioBook",
+    "AudioBookStatus",
+    "Chapter",
+    # Phase 3.1: Audio Books Pipeline
+    "Job",
+    "JobStatus",
+    "JobType",
+    "AudioBookJob",
+    # NOTE: No APICache - using Redis-only caching
+    # Future phases will add:
+    # Phase 6: User (authentication)
+]

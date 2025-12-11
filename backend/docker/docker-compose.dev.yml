@@ -1,0 +1,88 @@
+# BookBytes Development Docker Compose
+# Use: docker compose -f docker/docker-compose.dev.yml up
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dev
+    container_name: bookbytes-api-dev
+    ports:
+      - "${API_PORT:-8000}:8000"
+    environment:
+      - APP_ENV=development
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+      - LOG_FORMAT=console
+      - DATABASE_URL=postgresql+asyncpg://bookbytes:bookbytes@postgres:5432/bookbytes
+      - REDIS_URL=redis://redis:6379/0
+      - STORAGE_BACKEND=local
+      - LOCAL_STORAGE_PATH=/app/data/audio
+      - AUTH_MODE=api_key
+      - API_KEY=${API_KEY:-dev-api-key}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-dev-jwt-secret-change-in-production}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-sk-placeholder}
+    volumes:
+      # Mount source code for hot reload
+      - ../src:/app/src:cached
+      # Persist audio data
+      - audio-data:/app/data/audio
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - bookbytes-dev
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: bookbytes-postgres-dev
+    environment:
+      POSTGRES_USER: bookbytes
+      POSTGRES_PASSWORD: bookbytes
+      POSTGRES_DB: bookbytes
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bookbytes -d bookbytes"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - bookbytes-dev
+
+  redis:
+    image: redis:7-alpine
+    container_name: bookbytes-redis-dev
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - bookbytes-dev
+
+volumes:
+  postgres-data:
+    name: bookbytes_dev_postgres_data
+  redis-data:
+    name: bookbytes_dev_redis_data
+  audio-data:
+    name: bookbytes_dev_audio_data
+
+networks:
+  bookbytes-dev:
+    name: bookbytes-dev-network
