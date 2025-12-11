@@ -304,18 +304,14 @@ default=uuid7
 
 ### Phase 3.F: Background Jobs
 
-- [ ] 3.F.1 Create/update Job model for audiobook processing
-
-  - Add audio_book_id FK
-
-- [ ] 3.F.2 Update `workers/tasks.py` with audiobook processing
-
-  - Fetch work details
-  - Collect all ISBNs
-  - Generate audio (existing pipeline)
-
-- [ ] 3.F.3 Implement cache invalidation on job completion
-  - Invalidate search caches containing this work
+> **Moved to:** [audio-books-pipeline/tasks-audio-books-pipeline.md](../audio-books-pipeline/tasks-audio-books-pipeline.md)
+>
+> The background jobs, processing pipeline, and worker tasks are now defined in the
+> Audio Books Pipeline module (Phase 3.1), which handles:
+> - Job model and infrastructure
+> - LLM/TTS services with Protocol-based abstraction
+> - ProcessingService orchestration
+> - ARQ worker tasks
 
 ---
 

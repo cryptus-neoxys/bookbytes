@@ -100,25 +100,63 @@ flowchart TD
 
 ## Service Interfaces
 
-### LLMService
+### Design Decision: Protocol-Based Abstraction for Both LLM and TTS
+
+**Why?** Same reasoning applies to both services:
+- Decouple business logic from provider-specific libraries
+- Enable A/B testing between providers
+- Allow switching without changing domain code
+- Consistent architecture pattern
+
+### LLMProvider (Protocol-based)
 
 ```python
-from instructor import Instructor
+from typing import Protocol
 from pydantic import BaseModel
 
-class ChapterExtraction(BaseModel):
-    chapters: list[ChapterInfo]
-
+# Domain models - NO external library imports
 class ChapterInfo(BaseModel):
     number: int
     title: str
     summary: str
 
-class LLMService:
-    """Extract structured data from LLMs."""
+class ChapterExtraction(BaseModel):
+    chapters: list[ChapterInfo]
+
+class BookContext(BaseModel):
+    """Input context for chapter extraction."""
+    title: str
+    author: str
+    num_chapters: int = 10
+    language: str = "en"
+
+# Provider interface - implementations are free to use any library
+class LLMProvider(Protocol):
+    """Interface for LLM providers."""
     
-    def __init__(self, client: Instructor):
-        self.client = client
+    async def extract_chapters(
+        self, 
+        context: BookContext,
+    ) -> ChapterExtraction:
+        """Extract chapter summaries from a book."""
+        ...
+
+# Implementations can use Instructor, LiteLLM, raw OpenAI, etc.
+class InstructorLLMProvider:
+    """OpenAI via Instructor for structured output."""
+    
+class LiteLLMProvider:
+    """Multi-provider via LiteLLM."""
+
+class AnthropicProvider:
+    """Claude direct integration (future)."""
+
+# Service delegates to configured provider
+class LLMService:
+    """Thin wrapper - delegates to provider."""
+    
+    def __init__(self, provider: LLMProvider):
+        self._provider = provider
     
     async def extract_chapters(
         self, 
@@ -126,10 +164,15 @@ class LLMService:
         book_author: str,
         num_chapters: int = 10,
     ) -> ChapterExtraction:
-        """Extract chapter summaries using LLM."""
+        context = BookContext(
+            title=book_title,
+            author=book_author,
+            num_chapters=num_chapters,
+        )
+        return await self._provider.extract_chapters(context)
 ```
 
-### TTSService (Protocol-based)
+### TTSProvider (Protocol-based)
 
 ```python
 from typing import Protocol, AsyncIterator

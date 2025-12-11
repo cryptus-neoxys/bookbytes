@@ -157,9 +157,22 @@ Update the file after completing each sub-task, not just after completing an ent
   - 3.B: Cache Service (Redis)
   - 3.C: OpenLibrary Service (API client with caching)
   - 3.D: Library Service (Provider-agnostic book management)
-  - 3.E: API Endpoints (Search, process, refresh)
+  - 3.E: API Endpoints (Search, works, isbn)
   - 3.F: Background Jobs (Audiobook generation)
   - 3.G: Testing
+
+- [ ] 3.1 **Phase 3.1: Audio Books Pipeline** → [tasks-audio-books-pipeline.md](./audio-books-pipeline/tasks-audio-books-pipeline.md)
+
+  > **PRD:** [prd-audio-books-pipeline.md](./audio-books-pipeline/prd-audio-books-pipeline.md)  
+  > **Design Doc:** [design-doc.md](./audio-books-pipeline/design-doc.md)
+
+  LLM + TTS processing pipeline for chapter summaries:
+
+  - Processing API endpoints (process, refresh, job status)
+  - Job infrastructure (ARQ, Job model)
+  - LLM Service (Protocol-based, Instructor implementation)
+  - TTS Service (Protocol-based, OpenAI implementation)
+  - ProcessingService orchestration
 
 - [ ] 4.0 **Phase 4: API Layer & Error Handling**
 
@@ -185,21 +198,31 @@ Update the file after completing each sub-task, not just after completing an ent
 
 - [ ] 5.0 **Phase 5: Storage & External Services**
 
+  > **Note:** Storage tasks (5.1-5.5) are shared infrastructure used by the Audio Books Pipeline.
+  > Service tasks (5.6-5.14) have been **superseded** by Protocol-based services in Phase 3.1.
+
+  #### Storage Infrastructure (Active)
+
   - [ ] 5.1 Create `src/bookbytes/storage/base.py` with abstract `StorageBackend` class defining interface: `async save(key: str, data: bytes) -> str`, `async get_url(key: str) -> str`, `async delete(key: str) -> bool`, `async exists(key: str) -> bool`
   - [ ] 5.2 Create `src/bookbytes/storage/local.py` with `LocalStorage(StorageBackend)` implementation: saves files to `LOCAL_STORAGE_PATH`, returns file:// URLs for local dev, uses aiofiles for async I/O
-  - [ ] 5.3 Create `src/bookbytes/storage/s3.py` with `S3Storage(StorageBackend)` implementation: uses aioboto3 for async S3 operations, generates pre-signed URLs with configurable expiry (default: no expiry), handles bucket operations
+  - [ ] 5.3 Create `src/bookbytes/storage/s3.py` with `S3Storage(StorageBackend)` implementation: uses aioboto3 for async S3 operations, generates pre-signed URLs with configurable expiry
   - [ ] 5.4 Create `src/bookbytes/storage/__init__.py` with factory function `get_storage_backend(settings) -> StorageBackend` that returns LocalStorage or S3Storage based on `STORAGE_BACKEND` config
   - [ ] 5.5 Add storage backend dependency in `dependencies.py`: `get_storage()` that uses the factory function
-  - [ ] 5.6 Create `src/bookbytes/services/metadata_service.py` with `BookMetadataService` class: async `fetch_by_isbn(isbn: str) -> BookMetadata` using httpx to call Open Library API, parse response into dataclass, handle not found
-  - [ ] 5.7 Add retry logic to `BookMetadataService` using tenacity: `@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10))`, log retries
-  - [ ] 5.8 Create `src/bookbytes/services/openai_service.py` with `OpenAIService` class: async methods `extract_chapters(book_title, author) -> list[ChapterInfo]`, `generate_summary(book_title, chapter_title) -> str` using OpenAI async client
-  - [ ] 5.9 Add retry logic to `OpenAIService` methods using tenacity with exponential backoff, handle rate limits and API errors gracefully
-  - [ ] 5.10 Create `src/bookbytes/services/tts_service.py` with `TTSService` class: method `generate_audio(text: str, output_key: str) -> str` that uses gTTS (runs in thread executor since gTTS is sync), saves to storage backend, returns URL
-  - [ ] 5.11 Add retry logic to `TTSService` using tenacity: 3 retries with exponential backoff for transient failures
-  - [ ] 5.12 Create `src/bookbytes/services/book_service.py` with `BookService` class that orchestrates the full pipeline: `async process_book(isbn: str, job_id: str)` that coordinates MetadataService → OpenAIService → TTSService, updates job progress
-  - [ ] 5.13 Add configurable timeouts to all HTTP clients: Set `timeout=httpx.Timeout(30.0)` in httpx clients, `request_timeout=30` in OpenAI client
-  - [ ] 5.14 Wire up `BookService` in `process_book_task`: Instantiate services, call `book_service.process_book()`, handle exceptions and update job status accordingly
-  - [ ] 5.15 Add service dependencies in `dependencies.py`: `get_metadata_service()`, `get_openai_service()`, `get_tts_service()`, `get_book_service()`
+
+  #### External Services (Superseded by Phase 3.1)
+
+  The following tasks have been replaced by Protocol-based services in [audio-books-pipeline](./audio-books-pipeline/tasks-audio-books-pipeline.md):
+
+  - [x] 5.6 ~~`BookMetadataService`~~ → Replaced by `OpenLibraryService` in Phase 3.C
+  - [x] 5.7 ~~Retry logic for metadata~~ → Included in OpenLibraryService
+  - [x] 5.8 ~~`OpenAIService`~~ → Replaced by `LLMProvider` protocol + `InstructorLLMProvider` in Phase 3.1
+  - [x] 5.9 ~~Retry logic for OpenAI~~ → Included in LLMProvider implementations
+  - [x] 5.10 ~~`TTSService` (gTTS)~~ → Replaced by `TTSProvider` protocol + `OpenAITTSProvider` in Phase 3.1
+  - [x] 5.11 ~~Retry logic for TTS~~ → Included in TTSProvider implementations
+  - [x] 5.12 ~~`BookService` orchestration~~ → Replaced by `ProcessingService` in Phase 3.1
+  - [x] 5.13 ~~Configurable timeouts~~ → Configured in service implementations
+  - [x] 5.14 ~~Wire up BookService~~ → Wired in ProcessingService
+  - [x] 5.15 ~~Service dependencies~~ → Configured via DI in Phase 3.1
 
 - [ ] 6.0 **Phase 6: JWT Authentication**
 
