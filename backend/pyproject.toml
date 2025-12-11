@@ -59,6 +59,7 @@ dependencies = [
 
     # External APIs
     "openai",
+    "instructor>=1.0.0",  # Structured LLM output with Pydantic
     "gtts",
 
     # Resilience
