@@ -283,16 +283,9 @@ default=uuid7
   - Check library first, query API if not found
   - Store in library on fetch
 
-- [ ] 3.E.5 Create `POST /books/process` endpoint
+- [x] 3.E.5 ~~Create `POST /books/process` endpoint~~ → **Moved to** [audio-books-pipeline Phase 1](../audio-books-pipeline/tasks-audio-books-pipeline.md)
 
-  - Accept edition_id OR isbn
-  - Create Job, enqueue background task
-  - Return job_id
-
-- [ ] 3.E.6 Create `POST /books/{audio_book_id}/refresh` endpoint
-
-  - Regenerate audiobook for new edition
-  - Invalidate related caches
+- [x] 3.E.6 ~~Create `POST /books/{audio_book_id}/refresh` endpoint~~ → **Moved to** [audio-books-pipeline Phase 1](../audio-books-pipeline/tasks-audio-books-pipeline.md)
 
 - [x] 3.E.7 Create schemas in `schemas/search.py`
 
@@ -317,33 +310,32 @@ default=uuid7
 
 ### Phase 3.G: Testing
 
-- [ ] 3.G.1 Create `tests/unit/test_cache_service.py`
+- [x] 3.G.1 Create `tests/unit/test_cache_service.py`
 
-  - Test two-tier cache flow
+  - Test cache get/set flow
   - Test TTL jitter
-  - Test stale-while-revalidate
 
-- [ ] 3.G.2 Create `tests/unit/test_openlibrary_service.py`
+- [x] 3.G.2 Create `tests/unit/test_openlibrary_service.py`
 
   - Mock HTTP responses
   - Test search, work details, ISBN collection
 
-- [ ] 3.G.3 Create `tests/unit/test_library_service.py`
+- [x] 3.G.3 Create `tests/unit/test_library_service.py`
 
   - Test provider lookups
   - Test work/edition storage
 
-- [ ] 3.G.4 Create `tests/unit/test_repositories.py`
+- [ ] 3.G.4 Create `tests/unit/test_repositories.py` <!-- TODO -->
 
   - Test Work, Edition, BookProvider, AudioBook repositories
 
-- [ ] 3.G.5 Create `tests/integration/test_search_api.py`
+- [x] 3.G.5 Create `tests/integration/test_search_api.py`
 
   - Test full search flow with mocked OpenLibrary
   - Test caching behavior
   - Test pagination
 
-- [ ] 3.G.6 Add OpenLibrary mock responses to `tests/mocks/`
+- [ ] 3.G.6 Add OpenLibrary mock responses to `tests/mocks/` <!-- TODO -->
 
 ---
 
