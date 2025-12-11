@@ -83,24 +83,24 @@
 
 ### Phase 1: Processing API Endpoints
 
-- [ ] 1.1 Create `schemas/processing.py`
-  - [ ] `ProcessRequest(edition_id: UUID | None, isbn: str | None)` with validator
-  - [ ] `ProcessResponse(job_id, audio_book_id, status, message)`
-  - [ ] `JobStatusResponse(id, status, progress, error_message, timestamps)`
-  - [ ] `RefreshRequest(force: bool = False)`
+- [x] 1.1 Create `schemas/processing.py`
+  - [x] `ProcessRequest(edition_id: UUID | None, isbn: str | None)` with validator
+  - [x] `ProcessResponse(job_id, audio_book_id, status, message)`
+  - [x] `JobStatusResponse(id, status, progress, error_message, timestamps)`
+  - [x] `RefreshRequest(force: bool = False)`
 
-- [ ] 1.2 Create `api/v1/processing.py` router
-  - [ ] `POST /books/process` - Accept edition_id OR isbn, create job, return job_id
-  - [ ] `POST /books/{audio_book_id}/refresh` - Regenerate audiobook
-  - [ ] `GET /jobs/{job_id}` - Return job status with progress
+- [x] 1.2 Create `api/v1/processing.py` router
+  - [x] `POST /books/process` - Accept edition_id OR isbn, create job, return job_id
+  - [x] `POST /books/{audio_book_id}/refresh` - Regenerate audiobook
+  - [x] `GET /jobs/{job_id}` - Return job status with progress
 
-- [ ] 1.3 Add processing router to v1 router
-  - [ ] Include in `api/v1/router.py`
+- [x] 1.3 Add processing router to v1 router
+  - [x] Include in `api/v1/router.py`
 
-- [ ] 1.4 Unit tests for endpoints
-  - [ ] Test process endpoint validation
-  - [ ] Test job status endpoint
-  - [ ] Test refresh endpoint
+- [x] 1.4 Unit tests for endpoints
+  - [x] Test process endpoint validation (16 tests)
+  - [x] Test job status endpoint
+  - [x] Test refresh endpoint
 
 ---
 
